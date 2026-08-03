@@ -2,8 +2,11 @@
 
 An AI-based service provider & booking platform. Customers browse services,
 book providers at a time slot, and providers manage their catalog, weekly
-availability, and the booking lifecycle. The backend is a FastAPI + SQLAlchemy
-application organised as a clean **layered architecture**.
+availability, and the booking lifecycle. It also includes **authentication,
+admin management (provider verification + audit logs), customer reviews, an
+admin dashboard, and an AI assistant** (chatbot, recommendations, market trends,
+provider search). The backend is a FastAPI + SQLAlchemy application organised as
+a clean **layered architecture**.
 
 > Repository root contains the backend (`backend/`) and a placeholder for the
 > frontend (`frontend/`). This document focuses on the backend.
@@ -92,14 +95,16 @@ backend/
 ├── pytest.ini
 ├── .env.example                # copy to .env to configure
 ├── app/
-│   ├── api/v1/                 # routers (categories, services, bookings) + aggregator
+│   ├── api/v1/                 # routers: auth, admin, categories, services,
+│   │                           #   bookings, reviews, dashboard, ai + aggregator
 │   ├── core/                   # config, security, exceptions, dependencies, permissions
 │   ├── database/               # base, engine/session, request-scoped session
 │   ├── common/                 # constants, pagination, responses, utils
-│   ├── models/                 # user, provider, category, service, booking, schedule
-│   ├── schemas/                # category, service, booking, schedule
+│   ├── models/                 # user, provider, category, service, booking, schedule, review, admin_log
+│   ├── schemas/                # auth, admin, category, service, booking, schedule, review, dashboard, ai
 │   ├── repositories/           # base + per-aggregate data access + service filters
-│   └── services/               # category, service, booking, scheduling
+│   └── services/               # auth, admin, provider, category, service, booking,
+│                               #   scheduling, review, dashboard, ai
 └── tests/
     ├── conftest.py             # shared fixtures (in-memory SQLite)
     ├── factories.py            # record builders
@@ -226,7 +231,9 @@ bodies are:
 
 ### Authentication & roles
 
-Protected routes require a bearer token (JWT). Role guards restrict access:
+Create an account at `POST /api/v1/auth/register` and obtain a bearer token at
+`POST /api/v1/auth/login`. Send it as `Authorization: Bearer <token>`. Role
+guards restrict access:
 
 - `require_customer` — customers & admins
 - `require_provider` — providers & admins
@@ -234,3 +241,14 @@ Protected routes require a bearer token (JWT). Role guards restrict access:
 
 The booking routes additionally enforce ownership/participation (a provider may
 only act on their own bookings; customers may only view/cancel their own).
+
+### Feature endpoints
+
+| Area | Endpoints |
+| --- | --- |
+| Auth | `POST /auth/register`, `POST /auth/login` |
+| Admin | `POST /admin/providers/onboard`, `GET /admin/users`, `GET /admin/providers`, `PUT /admin/providers/{id}/verify`, `GET /admin/audit-logs` |
+| Reviews | `POST /reviews`, `GET /reviews` |
+| Dashboard | `POST /dashboard` |
+| AI assistant | `POST /ai/chatbot`, `POST /ai/recommend`, `GET /ai/trends`, `GET /ai/search` |
+

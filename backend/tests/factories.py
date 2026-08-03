@@ -8,9 +8,10 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.constants import PriceUnit, UserRole
+from app.common.constants import BookingStatus, PriceUnit, UserRole
 from app.common.utils import slugify
 from app.core.security import hash_password
+from app.models.booking import Booking
 from app.models.category import Category
 from app.models.provider import Provider
 from app.models.service import Service
@@ -51,12 +52,17 @@ async def make_provider(
     *,
     business_name: str = "Test Business",
     verified: bool = True,
+    category: str = "Plumbing",
+    hourly_rate: Decimal = Decimal("50.00"),
+    rating: Decimal = Decimal("4.50"),
 ) -> Provider:
     provider = Provider(
         user_id=user.id,
         business_name=business_name,
         is_verified=verified,
-        rating=Decimal("4.50"),
+        rating=rating,
+        category=category,
+        hourly_rate=hourly_rate,
     )
     db.add(provider)
     await db.flush()
@@ -103,6 +109,37 @@ async def make_service(
     db.add(service)
     await db.flush()
     return service
+
+
+async def make_booking(
+    db: AsyncSession,
+    *,
+    customer: User,
+    service: Service,
+    provider: Provider,
+    status: BookingStatus = BookingStatus.COMPLETED,
+    scheduled_date: date | None = None,
+    scheduled_start: time = None,
+    scheduled_end: time = None,
+    total_price: Decimal | None = None,
+    reference_code: str = "BK-TEST",
+) -> Booking:
+    """Create a booking record directly in the given status."""
+    booking = Booking(
+        reference_code=reference_code,
+        customer_id=customer.id,
+        service_id=service.id,
+        provider_id=provider.id,
+        service_title=service.title,
+        scheduled_date=scheduled_date or next_date(),
+        scheduled_start=scheduled_start or at(10),
+        scheduled_end=scheduled_end or at(12),
+        total_price=total_price or service.price,
+        status=status,
+    )
+    db.add(booking)
+    await db.flush()
+    return booking
 
 
 def next_date() -> date:
