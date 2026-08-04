@@ -16,3 +16,4 @@ import app.models.schedule  # noqa: F401
 import app.models.service  # noqa: F401
 import app.models.user  # noqa: F401
 import app.models.user_profile  # noqa: F401
+import app.models.provider_portfolio  # noqa: F401
