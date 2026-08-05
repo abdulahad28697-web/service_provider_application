@@ -76,12 +76,6 @@ async def recommend_providers(
         message="Provider recommendations generated.",
     )
 
-
-@router.post(
-    "/recommend/services",
-    response_model=StandardResponse,
-    summary="Get service recommendations",
-)
 async def recommend_services(
     payload: ServiceRecommendationRequest,
     service: AIService = Depends(_service),
