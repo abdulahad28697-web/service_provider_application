@@ -14,7 +14,7 @@ from app.api.v1 import (
     services,
     users,
 )
-
+from app.uploads import router as uploads
 api_router = APIRouter()
 
 api_router.include_router(auth.router)
@@ -27,3 +27,4 @@ api_router.include_router(admin.router)
 api_router.include_router(reviews.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(ai.router)
+api_router.include_router(uploads.router)

@@ -33,3 +33,5 @@ Thumbs.db
 
 # Logs
 *.log
+# User-uploaded media
+backend/media/
