@@ -1,8 +1,10 @@
 """Business logic for reviews."""
+
 from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.constants import BookingStatus
 from app.core.exceptions import ConflictError, NotFoundError
 from app.models.review import Review
 from app.models.user import User
@@ -21,29 +23,106 @@ class ReviewService:
         self.bookings = BookingRepository(db)
         self.providers = ProviderRepository(db)
 
-    async def create(self, customer: User, data: ReviewCreate) -> Review:
-        """Create a review, updating the provider's average rating."""
-        if await self.reviews.get_by_booking_id(data.booking_id):
-            raise ConflictError("A review already exists for this booking.")
+    async def create(
+        self,
+        customer: User,
+        data: ReviewCreate,
+    ) -> Review:
+        """
+        Create a review for a completed booking and update
+        the provider's average rating.
+        """
 
-        booking = await self.bookings.get(data.booking_id)
+        # -----------------------------------------------------
+        # ONLY ONE REVIEW PER BOOKING
+        # -----------------------------------------------------
+
+        existing_review = (
+            await self.reviews.get_by_booking_id(
+                data.booking_id
+            )
+        )
+
+        if existing_review is not None:
+            raise ConflictError(
+                "A review already exists for this booking."
+            )
+
+        # -----------------------------------------------------
+        # BOOKING MUST EXIST
+        # -----------------------------------------------------
+
+        booking = await self.bookings.get(
+            data.booking_id
+        )
+
         if booking is None:
-            raise NotFoundError("Booking not found.")
+            raise NotFoundError(
+                "Booking not found."
+            )
+
+        # -----------------------------------------------------
+        # CUSTOMER MUST OWN THE BOOKING
+        # -----------------------------------------------------
+
         if booking.customer_id != customer.id:
-            raise NotFoundError("Booking not found.")
+            # Do not expose another customer's booking.
+            raise NotFoundError(
+                "Booking not found."
+            )
 
-        review = await self.reviews.create(customer.id, data)
+        # -----------------------------------------------------
+        # BOOKING MUST BE COMPLETED
+        # -----------------------------------------------------
 
-        # Recompute and persist the provider's average rating.
-        provider = await self.providers.get(booking.provider_id)
+        if booking.status != BookingStatus.COMPLETED:
+            raise ConflictError(
+                "You can only review a completed booking."
+            )
+
+        # -----------------------------------------------------
+        # CREATE REVIEW
+        # -----------------------------------------------------
+
+        review = await self.reviews.create(
+            customer.id,
+            data,
+        )
+
+        # -----------------------------------------------------
+        # UPDATE PROVIDER AVERAGE RATING
+        # -----------------------------------------------------
+
+        provider = await self.providers.get(
+            booking.provider_id
+        )
+
         if provider is not None:
-            avg = await self.reviews.get_average_rating_for_provider(provider.id)
-            await self.providers.update_rating(provider, avg)
+            average_rating = (
+                await self.reviews
+                .get_average_rating_for_provider(
+                    provider.id
+                )
+            )
+
+            await self.providers.update_rating(
+                provider,
+                average_rating,
+            )
 
         await self.db.commit()
         await self.db.refresh(review)
+
         return review
 
-    async def list(self, skip: int = 0, limit: int = 100) -> Sequence[Review]:
+    async def list(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Sequence[Review]:
         """Return reviews, most recent first."""
-        return await self.reviews.list(skip=skip, limit=limit)
+
+        return await self.reviews.list(
+            skip=skip,
+            limit=limit,
+        )

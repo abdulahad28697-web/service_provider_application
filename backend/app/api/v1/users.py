@@ -1,16 +1,9 @@
 """HTTP endpoints for user profile management."""
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    status,
-)
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.responses import (
-    StandardResponse,
-    success_response,
-)
+from app.common.responses import StandardResponse, success_response
 from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.models.user import User
@@ -20,12 +13,9 @@ from app.schemas.user_profile import (
     AddressUpdate,
     DeleteAccountRequest,
     FavoriteProviderRead,
-    UserProfileRead,
     UserProfileUpdate,
 )
-from app.services.user_profile_service import (
-    UserProfileService,
-)
+from app.services.user_profile_service import UserProfileService
 
 
 router = APIRouter(
@@ -37,8 +27,13 @@ router = APIRouter(
 def _service(
     db: AsyncSession = Depends(get_db),
 ) -> UserProfileService:
+    """Create a user-profile service for the current request."""
     return UserProfileService(db)
 
+
+# ---------------------------------------------------------------------------
+# Profile
+# ---------------------------------------------------------------------------
 
 @router.get(
     "/me",
@@ -95,9 +90,13 @@ async def delete_account(
 
     return success_response(
         data=None,
-        message="Account deleted successfully.",
+        message="Account deactivated successfully.",
     )
 
+
+# ---------------------------------------------------------------------------
+# Addresses
+# ---------------------------------------------------------------------------
 
 @router.get(
     "/me/addresses",
@@ -108,9 +107,7 @@ async def list_addresses(
     user: User = Depends(get_current_user),
     service: UserProfileService = Depends(_service),
 ):
-    addresses = await service.list_addresses(
-        user
-    )
+    addresses = await service.list_addresses(user)
 
     return success_response(
         data=[
@@ -187,6 +184,10 @@ async def delete_address(
     )
 
 
+# ---------------------------------------------------------------------------
+# Favorite providers
+# ---------------------------------------------------------------------------
+
 @router.get(
     "/me/favorites",
     response_model=StandardResponse,
@@ -196,12 +197,13 @@ async def list_favorites(
     user: User = Depends(get_current_user),
     service: UserProfileService = Depends(_service),
 ):
-    favorites = await service.list_favorites(
-        user
-    )
+    favorites = await service.list_favorites(user)
 
     return success_response(
-        data=favorites,
+        data=[
+            FavoriteProviderRead.model_validate(favorite)
+            for favorite in favorites
+        ],
         message="Favorite providers fetched.",
     )
 
@@ -223,9 +225,7 @@ async def add_favorite(
     )
 
     return success_response(
-        data=FavoriteProviderRead.model_validate(
-            favorite
-        ),
+        data=FavoriteProviderRead.model_validate(favorite),
         message="Provider added to favorites.",
     )
 

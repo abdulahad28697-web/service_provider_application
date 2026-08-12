@@ -21,13 +21,21 @@ class UserProfileUpdate(BaseModel):
         min_length=1,
         max_length=255,
     )
+
     email: Optional[EmailStr] = None
+
     phone_number: Optional[str] = Field(
         default=None,
         min_length=7,
         max_length=30,
     )
+
     bio: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    profile_picture_url: Optional[str] = Field(
         default=None,
         max_length=1000,
     )

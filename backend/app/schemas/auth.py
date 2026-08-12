@@ -1,7 +1,7 @@
 """Authentication Pydantic schemas."""
 
 import re
-
+from app.common.constants import UserRole
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -26,7 +26,7 @@ def validate_password_strength(value: str) -> str:
 
 
 class UserRegister(BaseModel):
-    """Payload for creating a customer account."""
+    """Payload for creating a customer or provider account."""
 
     email: EmailStr
     password: str = Field(
@@ -39,6 +39,7 @@ class UserRegister(BaseModel):
         min_length=1,
         max_length=255,
     )
+    role: UserRole = UserRole.CUSTOMER
 
     @field_validator("password")
     @classmethod

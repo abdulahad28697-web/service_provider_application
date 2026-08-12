@@ -12,7 +12,9 @@ from app.models.user import User
 from app.repositories.user_profile_repository import (
     UserProfileRepository,
 )
-from app.repositories.user_repository import UserRepository
+from app.repositories.user_repository import (
+    UserRepository,
+)
 from app.schemas.user_profile import (
     AddressCreate,
     AddressUpdate,
@@ -33,6 +35,10 @@ class UserProfileService:
         self.db = db
         self.users = UserRepository(db)
         self.profiles = UserProfileRepository(db)
+
+    # ========================================================
+    # PROFILE RESPONSE
+    # ========================================================
 
     def _profile_response(
         self,
@@ -55,6 +61,10 @@ class UserProfileService:
             updated_at=profile.updated_at,
         )
 
+    # ========================================================
+    # GET PROFILE
+    # ========================================================
+
     async def get_profile(
         self,
         user: User,
@@ -73,6 +83,10 @@ class UserProfileService:
             profile,
         )
 
+    # ========================================================
+    # UPDATE PROFILE
+    # ========================================================
+
     async def update_profile(
         self,
         user: User,
@@ -83,9 +97,20 @@ class UserProfileService:
                 "At least one profile field is required."
             )
 
-        if data.email:
+        # ----------------------------------------------------
+        # EMAIL
+        # ----------------------------------------------------
+
+        if "email" in data.model_fields_set:
+            if data.email is None:
+                raise BadRequestError(
+                    "Email cannot be empty."
+                )
+
             normalized_email = (
-                str(data.email).strip().lower()
+                str(data.email)
+                .strip()
+                .lower()
             )
 
             if normalized_email != user.email:
@@ -95,14 +120,26 @@ class UserProfileService:
                     )
                 )
 
-                if existing_user:
+                if (
+                    existing_user
+                    and existing_user.id != user.id
+                ):
                     raise ConflictError(
                         "A user with this email already exists."
                     )
 
                 user.email = normalized_email
 
-        if data.full_name is not None:
+        # ----------------------------------------------------
+        # FULL NAME
+        # ----------------------------------------------------
+
+        if "full_name" in data.model_fields_set:
+            if data.full_name is None:
+                raise BadRequestError(
+                    "Full name cannot be empty."
+                )
+
             cleaned_name = " ".join(
                 data.full_name.split()
             )
@@ -114,22 +151,57 @@ class UserProfileService:
 
             user.full_name = cleaned_name
 
+        # ----------------------------------------------------
+        # GET / CREATE PROFILE RECORD
+        # ----------------------------------------------------
+
         profile = (
             await self.profiles.get_or_create_profile(
                 user.id
             )
         )
 
+        # ----------------------------------------------------
+        # PHONE NUMBER
+        # ----------------------------------------------------
+
         if "phone_number" in data.model_fields_set:
-            profile.phone_number = data.phone_number
+            profile.phone_number = (
+                data.phone_number.strip()
+                if data.phone_number
+                else None
+            )
+
+        # ----------------------------------------------------
+        # BIO
+        # ----------------------------------------------------
 
         if "bio" in data.model_fields_set:
-            profile.bio = data.bio
+            profile.bio = (
+                data.bio.strip()
+                if data.bio
+                else None
+            )
+
+        # ----------------------------------------------------
+        # PROFILE PICTURE
+        # ----------------------------------------------------
+
+        if (
+            "profile_picture_url"
+            in data.model_fields_set
+        ):
+            profile.profile_picture_url = (
+                data.profile_picture_url.strip()
+                if data.profile_picture_url
+                else None
+            )
 
         self.db.add(user)
         self.db.add(profile)
 
         await self.db.commit()
+
         await self.db.refresh(user)
         await self.db.refresh(profile)
 
@@ -137,6 +209,10 @@ class UserProfileService:
             user,
             profile,
         )
+
+    # ========================================================
+    # DELETE / DEACTIVATE ACCOUNT
+    # ========================================================
 
     async def delete_account(
         self,
@@ -152,9 +228,14 @@ class UserProfileService:
             )
 
         user.is_active = False
+
         self.db.add(user)
 
         await self.db.commit()
+
+    # ========================================================
+    # ADDRESSES
+    # ========================================================
 
     async def list_addresses(
         self,
@@ -169,9 +250,11 @@ class UserProfileService:
         user: User,
         data: AddressCreate,
     ):
-        address = await self.profiles.create_address(
-            user.id,
-            data,
+        address = (
+            await self.profiles.create_address(
+                user.id,
+                data,
+            )
         )
 
         await self.db.commit()
@@ -190,9 +273,11 @@ class UserProfileService:
                 "At least one address field is required."
             )
 
-        address = await self.profiles.get_address(
-            user.id,
-            address_id,
+        address = (
+            await self.profiles.get_address(
+                user.id,
+                address_id,
+            )
         )
 
         if address is None:
@@ -200,9 +285,11 @@ class UserProfileService:
                 "Address not found."
             )
 
-        address = await self.profiles.update_address(
-            address,
-            data,
+        address = (
+            await self.profiles.update_address(
+                address,
+                data,
+            )
         )
 
         await self.db.commit()
@@ -215,9 +302,11 @@ class UserProfileService:
         user: User,
         address_id: int,
     ) -> None:
-        address = await self.profiles.get_address(
-            user.id,
-            address_id,
+        address = (
+            await self.profiles.get_address(
+                user.id,
+                address_id,
+            )
         )
 
         if address is None:
@@ -231,26 +320,38 @@ class UserProfileService:
 
         await self.db.commit()
 
+    # ========================================================
+    # FAVORITES
+    # ========================================================
+
     async def list_favorites(
         self,
         user: User,
     ) -> list[FavoriteProviderRead]:
-        rows = await self.profiles.list_favorites(
-            user.id
+        rows = (
+            await self.profiles.list_favorites(
+                user.id
+            )
         )
 
         return [
             FavoriteProviderRead(
                 id=favorite.id,
                 provider_id=provider.id,
-                business_name=provider.business_name,
+                business_name=(
+                    provider.business_name
+                ),
                 category=provider.category,
                 city=provider.city,
-                rating=float(provider.rating),
-                hourly_rate=float(
-                    provider.hourly_rate
+                rating=float(
+                    provider.rating or 0
                 ),
-                created_at=favorite.created_at,
+                hourly_rate=float(
+                    provider.hourly_rate or 0
+                ),
+                created_at=(
+                    favorite.created_at
+                ),
             )
             for favorite, provider in rows
         ]
@@ -260,18 +361,22 @@ class UserProfileService:
         user: User,
         provider_id: int,
     ) -> FavoriteProviderRead:
-        provider = await self.profiles.get_provider(
-            provider_id
+        provider = (
+            await self.profiles.get_provider(
+                provider_id
+            )
         )
 
-        if provider is None or not provider.is_verified:
+        if provider is None:
             raise NotFoundError(
                 "Provider not found."
             )
 
-        existing = await self.profiles.get_favorite(
-            user.id,
-            provider_id,
+        existing = (
+            await self.profiles.get_favorite(
+                user.id,
+                provider_id,
+            )
         )
 
         if existing:
@@ -279,9 +384,11 @@ class UserProfileService:
                 "Provider is already in favorites."
             )
 
-        favorite = await self.profiles.add_favorite(
-            user.id,
-            provider_id,
+        favorite = (
+            await self.profiles.add_favorite(
+                user.id,
+                provider_id,
+            )
         )
 
         await self.db.commit()
@@ -290,11 +397,17 @@ class UserProfileService:
         return FavoriteProviderRead(
             id=favorite.id,
             provider_id=provider.id,
-            business_name=provider.business_name,
+            business_name=(
+                provider.business_name
+            ),
             category=provider.category,
             city=provider.city,
-            rating=float(provider.rating),
-            hourly_rate=float(provider.hourly_rate),
+            rating=float(
+                provider.rating or 0
+            ),
+            hourly_rate=float(
+                provider.hourly_rate or 0
+            ),
             created_at=favorite.created_at,
         )
 
@@ -303,9 +416,11 @@ class UserProfileService:
         user: User,
         provider_id: int,
     ) -> None:
-        favorite = await self.profiles.get_favorite(
-            user.id,
-            provider_id,
+        favorite = (
+            await self.profiles.get_favorite(
+                user.id,
+                provider_id,
+            )
         )
 
         if favorite is None:

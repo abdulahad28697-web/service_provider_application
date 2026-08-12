@@ -47,7 +47,7 @@ class UserRepository(BaseRepository):
             email=data.email.strip().lower(),
             full_name=data.full_name.strip(),
             hashed_password=hashed_password,
-            role=UserRole.CUSTOMER,
+            role=data.role,
             is_active=True,
         )
 
