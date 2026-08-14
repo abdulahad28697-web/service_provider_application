@@ -1,7 +1,9 @@
 # ServiceHub AI — local development stack.
 #
 #   docker compose up --build
-#   http://localhost:8000/docs
+#   Frontend: http://localhost:3000
+#   Backend API: http://localhost:8000
+#   API Docs: http://localhost:8000/docs
 services:
   db:
     image: postgres:16-alpine
@@ -39,6 +41,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
 
   # Run the unit test suite in an isolated container. Tests use an in-memory
   # SQLite database, so no Postgres/Redis are required.
