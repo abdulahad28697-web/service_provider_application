@@ -4,7 +4,8 @@ Run locally:  ``uvicorn main:app --reload``
 Run in Docker: ``docker compose up``
 """
 from contextlib import asynccontextmanager
-
+from fastapi.staticfiles import StaticFiles
+from app.uploads.utils import ensure_upload_directories
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -35,6 +36,14 @@ def create_app() -> FastAPI:
         version=settings.PROJECT_VERSION,
         description="AI-based service provider & booking platform.",
         lifespan=lifespan,
+    )
+
+    ensure_upload_directories()
+
+    application.mount(
+        "/media",
+        StaticFiles(directory="media"),
+        name="media",
     )
 
     # Uniform error envelope for our domain exceptions + validation errors.

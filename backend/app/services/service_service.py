@@ -1,20 +1,31 @@
 """Business logic for services."""
-from sqlalchemy import select
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.constants import BookingStatus
 from app.common.pagination import Page, PageParams
 from app.common.utils import slugify
-from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.core.exceptions import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+)
 from app.models.booking import Booking
 from app.models.provider import Provider
+from app.models.review import Review
 from app.models.service import Service
 from app.models.user import User
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.provider_repository import ProviderRepository
 from app.repositories.service_filters import ServiceFilters
 from app.repositories.service_repository import ServiceRepository
-from app.schemas.service import ServiceCreate, ServiceRead, ServiceUpdate
+from app.schemas.category import CategoryCreate
+from app.schemas.service import (
+    ServiceCreate,
+    ServiceRead,
+    ServiceUpdate,
+)
 
 
 class ServiceService:
@@ -27,19 +38,27 @@ class ServiceService:
         self.providers = ProviderRepository(db)
 
     async def get(self, service_id: int) -> Service:
-        """Return a service, raising ``NotFoundError`` if it is missing."""
+        """Return a service, raising NotFoundError if missing."""
+
         service = await self.repo.get(service_id)
+
         if service is None:
             raise NotFoundError("Service not found.")
+
         return service
 
     async def get_read(
-        self, service_id: int, include_inactive: bool = False
+        self,
+        service_id: int,
+        include_inactive: bool = False,
     ) -> ServiceRead:
-        """Return a hydrated :class:`ServiceRead` (with category/provider names)."""
+        """Return a hydrated ServiceRead."""
+
         service = await self.get(service_id)
+
         if not service.is_active and not include_inactive:
             raise NotFoundError("Service not found.")
+
         return await self._to_read(service)
 
     async def list(
@@ -48,103 +67,379 @@ class ServiceService:
         filters: ServiceFilters,
         include_inactive: bool = False,
     ) -> Page[ServiceRead]:
-        """Return a page of services matching ``filters``.
+        """Return a page of services matching filters."""
 
-        By default only active services are returned; hiding inactive ones is
-        the public-facing behaviour unless ``include_inactive`` is requested.
-        """
-        if not include_inactive and filters.is_active is None:
+        if (
+            not include_inactive
+            and filters.is_active is None
+        ):
             filters.is_active = True
 
-        items, total = await self.repo.list(params, filters)
-        reads = [await self._to_read(s) for s in items]
-        return Page.create(reads, total, params.page, params.page_size)
+        items, total = await self.repo.list(
+            params,
+            filters,
+        )
 
-    async def create(self, data: ServiceCreate, provider: Provider) -> Service:
-        """Create a service under a provider, validating category + slug."""
-        category = await self.categories.get(data.category_id)
+        reads = [
+            await self._to_read(service)
+            for service in items
+        ]
+
+        return Page.create(
+            reads,
+            total,
+            params.page,
+            params.page_size,
+        )
+
+    # =========================================================
+    # CREATE
+    # =========================================================
+
+    async def create(
+        self,
+        data: ServiceCreate,
+        provider: Provider,
+    ) -> Service:
+        """Create a service for the current provider."""
+
+        category = None
+
+        # -----------------------------------------------------
+        # CATEGORY RESOLUTION
+        # -----------------------------------------------------
+
+        if data.category_id is not None:
+            category = await self.categories.get(
+                data.category_id
+            )
+
+        elif data.category_name:
+            category_name = data.category_name.strip()
+
+            category = await self.categories.get_by_name(
+                category_name
+            )
+
+            # Category does not exist -> create it automatically
+            if category is None:
+                category_slug = slugify(category_name)
+
+                # Double check slug in case different spelling/case
+                existing_by_slug = (
+                    await self.categories.get_by_slug(
+                        category_slug
+                    )
+                )
+
+                if existing_by_slug is not None:
+                    category = existing_by_slug
+
+                else:
+                    category_data = CategoryCreate(
+                        name=category_name,
+                    )
+
+                    category = await self.categories.create(
+                        category_data,
+                        category_slug,
+                    )
+
         if category is None:
-            raise NotFoundError("Category not found.")
+            raise NotFoundError(
+                "A valid category is required."
+            )
 
-        slug = data.slug or slugify(data.title)
-        if await self.repo.get_by_slug(slug):
-            raise ConflictError("A service with this slug already exists.")
+        # -----------------------------------------------------
+        # UNIQUE SERVICE SLUG
+        # -----------------------------------------------------
 
-        service = await self.repo.create(data, slug, provider.id)
+        base_slug = (
+            slugify(data.slug)
+            if data.slug
+            else slugify(data.title)
+        )
+
+        slug = f"{base_slug}-{provider.id}"
+
+        existing = await self.repo.get_by_slug(slug)
+
+        if existing is not None:
+            counter = 2
+
+            while (
+                await self.repo.get_by_slug(
+                    f"{slug}-{counter}"
+                )
+                is not None
+            ):
+                counter += 1
+
+            slug = f"{slug}-{counter}"
+
+        # -----------------------------------------------------
+        # CREATE SERVICE
+        # -----------------------------------------------------
+
+        service = await self.repo.create(
+            data=data,
+            slug=slug,
+            provider_id=provider.id,
+            category_id=category.id,
+        )
+
         await self.db.commit()
         await self.db.refresh(service)
+
         return service
 
-    async def update(self, service_id: int, data: ServiceUpdate, user: User) -> Service:
-        """Update a service owned by ``user`` (admins may update any)."""
+    # =========================================================
+    # UPDATE
+    # =========================================================
+
+    async def update(
+        self,
+        service_id: int,
+        data: ServiceUpdate,
+        user: User,
+    ) -> Service:
+        """Update a service owned by the provider/admin."""
+
         service = await self.get(service_id)
-        await self._assert_can_manage(service, user)
 
-        payload = data.model_dump(exclude_unset=True)
-
-        if "category_id" in payload:
-            category = await self.categories.get(payload["category_id"])
-            if category is None:
-                raise NotFoundError("Category not found.")
-
-        new_slug = payload.get("slug") or (
-            slugify(payload["title"]) if payload.get("title") else None
+        await self._assert_can_manage(
+            service,
+            user,
         )
-        if new_slug and new_slug != service.slug and await self.repo.get_by_slug(new_slug):
-            raise ConflictError("A service with this slug already exists.")
-        if new_slug:
+
+        payload = data.model_dump(
+            exclude_unset=True
+        )
+
+        # -----------------------------------------------------
+        # CATEGORY NAME
+        # -----------------------------------------------------
+
+        category_name = payload.pop(
+            "category_name",
+            None,
+        )
+
+        if category_name:
+            category_name = category_name.strip()
+
+            category = await self.categories.get_by_name(
+                category_name
+            )
+
+            if category is None:
+                category_slug = slugify(category_name)
+
+                existing_by_slug = (
+                    await self.categories.get_by_slug(
+                        category_slug
+                    )
+                )
+
+                if existing_by_slug is not None:
+                    category = existing_by_slug
+                else:
+                    category_data = CategoryCreate(
+                        name=category_name,
+                    )
+
+                    category = await self.categories.create(
+                        category_data,
+                        category_slug,
+                    )
+
+            payload["category_id"] = category.id
+
+        # -----------------------------------------------------
+        # CATEGORY ID
+        # -----------------------------------------------------
+
+        elif "category_id" in payload:
+            category = await self.categories.get(
+                payload["category_id"]
+            )
+
+            if category is None:
+                raise NotFoundError(
+                    "Category not found."
+                )
+
+        # -----------------------------------------------------
+        # SLUG
+        # -----------------------------------------------------
+
+        if "slug" in payload and payload["slug"]:
+            base_slug = slugify(
+                payload["slug"]
+            )
+
+            new_slug = (
+                f"{base_slug}-{service.provider_id}"
+            )
+
+            if new_slug != service.slug:
+                existing = await self.repo.get_by_slug(
+                    new_slug
+                )
+
+                if (
+                    existing is not None
+                    and existing.id != service.id
+                ):
+                    counter = 2
+
+                    candidate = (
+                        f"{new_slug}-{counter}"
+                    )
+
+                    while (
+                        await self.repo.get_by_slug(
+                            candidate
+                        )
+                        is not None
+                    ):
+                        counter += 1
+
+                        candidate = (
+                            f"{new_slug}-{counter}"
+                        )
+
+                    new_slug = candidate
+
             payload["slug"] = new_slug
 
-        updated = await self.repo.update(service, ServiceUpdate(**payload))
+        updated = await self.repo.update(
+            service,
+            ServiceUpdate(**payload),
+        )
+
         await self.db.commit()
         await self.db.refresh(updated)
+
         return updated
 
-    async def delete(self, service_id: int, user: User) -> None:
-        """Delete a service, blocking the action if it has open bookings."""
+    # =========================================================
+    # DELETE / SOFT DELETE
+    # =========================================================
+
+    async def delete(
+        self,
+        service_id: int,
+        user: User,
+    ) -> None:
+        """Soft-delete a service by marking it inactive."""
+
         service = await self.get(service_id)
-        await self._assert_can_manage(service, user)
 
-        # Count non-terminal bookings so a service with upcoming work cannot be
-        # removed out from under customers.
-        from sqlalchemy import func
+        await self._assert_can_manage(
+            service,
+            user,
+        )
 
-        open_count = (
-            await self.db.execute(
-                select(func.count(Booking.id)).where(
-                    Booking.service_id == service_id,
-                    Booking.status.in_([BookingStatus.PENDING, BookingStatus.ACCEPTED]),
-                )
-            )
-        ).scalar_one()
-        if open_count:
-            raise ConflictError(
-                "Cannot delete a service with pending or accepted bookings."
-            )
+        service.is_active = False
 
-        await self.repo.delete(service)
         await self.db.commit()
+        await self.db.refresh(service)
 
-    # -- helpers -------------------------------------------------------------
-    async def _assert_can_manage(self, service: Service, user: User) -> None:
-        """A user may only manage their own services (admins may manage any)."""
+    # =========================================================
+    # PERMISSIONS
+    # =========================================================
+
+    async def _assert_can_manage(
+        self,
+        service: Service,
+        user: User,
+    ) -> None:
+        """Check whether user can manage this service."""
+
         if user.role.value == "admin":
             return
-        owner_id = await self.providers.get_owner_user_id(service.provider_id)
-        if owner_id != user.id:
-            raise ForbiddenError("You are not allowed to manage this service.")
 
-    async def _to_read(self, service: Service) -> ServiceRead:
-        """Hydrate a :class:`ServiceRead` with category and provider names."""
+        owner_id = (
+            await self.providers.get_owner_user_id(
+                service.provider_id
+            )
+        )
+
+        if owner_id != user.id:
+            raise ForbiddenError(
+                "You are not allowed to manage this service."
+            )
+
+    # =========================================================
+    # READ MODEL
+    # =========================================================
+
+    async def _to_read(
+        self,
+        service: Service,
+    ) -> ServiceRead:
+        """Convert Service ORM object into a hydrated ServiceRead."""
+
         read = ServiceRead.model_validate(service)
-        category = await self.categories.get(service.category_id)
+
+        # -----------------------------------------------------
+        # CATEGORY NAME
+        # -----------------------------------------------------
+
+        category = await self.categories.get(
+            service.category_id
+        )
+
         if category:
             read.category_name = category.name
 
-        result = await self.db.execute(
-            select(User.full_name)
-            .join(Provider, Provider.user_id == User.id)
-            .where(Provider.id == service.provider_id)
+        # -----------------------------------------------------
+        # PROVIDER NAME + AVERAGE RATING
+        # -----------------------------------------------------
+
+        provider_result = await self.db.execute(
+            select(
+                User.full_name,
+                Provider.rating,
+            )
+            .join(
+                Provider,
+                Provider.user_id == User.id,
+            )
+            .where(
+                Provider.id == service.provider_id
+            )
         )
-        read.provider_name = result.scalar_one_or_none()
+
+        provider_row = provider_result.first()
+
+        if provider_row is not None:
+            read.provider_name = provider_row[0]
+            read.provider_rating = float(
+                provider_row[1] or 0
+            )
+        else:
+            read.provider_name = None
+            read.provider_rating = 0.0
+
+        # -----------------------------------------------------
+        # REVIEW COUNT FOR THIS PROVIDER
+        # -----------------------------------------------------
+
+        review_count_result = await self.db.execute(
+            select(func.count(Review.id))
+            .join(
+                Booking,
+                Review.booking_id == Booking.id,
+            )
+            .where(
+                Booking.provider_id == service.provider_id
+            )
+        )
+
+        read.review_count = int(
+            review_count_result.scalar() or 0
+        )
+
         return read

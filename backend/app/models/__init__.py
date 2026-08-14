@@ -15,3 +15,8 @@ import app.models.review  # noqa: F401
 import app.models.schedule  # noqa: F401
 import app.models.service  # noqa: F401
 import app.models.user  # noqa: F401
+import app.models.user_profile  # noqa: F401
+import app.models.provider_portfolio  # noqa: F401
+from app.models.notification import Notification
+from app.models.message import Message
+from app.models.payment import Payment
