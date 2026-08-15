@@ -7,6 +7,7 @@ backend root so the same code runs both locally and inside Docker.
 from functools import lru_cache
 from typing import List
 
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,6 +45,31 @@ class Settings(BaseSettings):
     # --- Pagination defaults -----------------------------------------------
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str, info) -> str:
+        """Fail fast if using default secret key in production."""
+        # During validation, DEBUG might not be available yet, so we check the data
+        debug = info.data.get("DEBUG", False) if info.data else False
+        if not debug and v == "change-me-in-production":
+            raise ValueError(
+                "SECRET_KEY must be changed from the default value in production. "
+                "Set a strong random secret in your environment."
+            )
+        return v
+
+    @field_validator("CORS_ORIGINS")
+    @classmethod
+    def validate_cors_origins(cls, v: List[str], info) -> List[str]:
+        """Warn if CORS origins contain wildcard in production."""
+        debug = info.data.get("DEBUG", False) if info.data else False
+        if not debug and any(origin == "*" for origin in v):
+            raise ValueError(
+                "CORS_ORIGINS cannot contain '*' in production. "
+                "Specify explicit allowed origins."
+            )
+        return v
 
 
 @lru_cache

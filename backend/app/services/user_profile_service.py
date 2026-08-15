@@ -19,7 +19,7 @@ from app.schemas.user_profile import (
     AddressCreate,
     AddressUpdate,
     DeleteAccountRequest,
-    FavoriteProviderRead,
+    FavoriteServiceRead,
     UserProfileRead,
     UserProfileUpdate,
 )
@@ -324,10 +324,75 @@ class UserProfileService:
     # FAVORITES
     # ========================================================
 
+    async def _hydrate_favorite(self, favorite, service) -> FavoriteServiceRead:
+        from app.models.category import Category
+        from app.models.provider import Provider
+        from app.models.user import User
+        from app.models.review import Review
+        from app.models.booking import Booking
+        from sqlalchemy import func, select
+
+        # Category Name
+        category_name = None
+        category_result = await self.db.execute(
+            select(Category.name).where(Category.id == service.category_id)
+        )
+        category_name = category_result.scalar_one_or_none()
+
+        # Provider details
+        provider_name = None
+        provider_rating = 0.0
+        provider_result = await self.db.execute(
+            select(
+                User.full_name,
+                Provider.rating,
+                Provider.business_name,
+            )
+            .join(
+                Provider,
+                Provider.user_id == User.id,
+            )
+            .where(
+                Provider.id == service.provider_id
+            )
+        )
+        provider_row = provider_result.first()
+        if provider_row is not None:
+            provider_name = provider_row[2] or provider_row[0]
+            provider_rating = float(provider_row[1] or 0)
+
+        # Review count
+        review_count_result = await self.db.execute(
+            select(func.count(Review.id))
+            .join(
+                Booking,
+                Review.booking_id == Booking.id,
+            )
+            .where(
+                Booking.provider_id == service.provider_id
+            )
+        )
+        review_count = review_count_result.scalar_one() or 0
+
+        return FavoriteServiceRead(
+            id=favorite.id,
+            service_id=service.id,
+            title=service.title,
+            price=float(service.price or 0),
+            price_unit=service.price_unit.value,
+            duration_minutes=service.duration_minutes,
+            images=service.images or [],
+            category_name=category_name,
+            provider_name=provider_name,
+            provider_rating=provider_rating,
+            review_count=review_count,
+            created_at=favorite.created_at,
+        )
+
     async def list_favorites(
         self,
         user: User,
-    ) -> list[FavoriteProviderRead]:
+    ) -> list[FavoriteServiceRead]:
         rows = (
             await self.profiles.list_favorites(
                 user.id
@@ -335,97 +400,62 @@ class UserProfileService:
         )
 
         return [
-            FavoriteProviderRead(
-                id=favorite.id,
-                provider_id=provider.id,
-                business_name=(
-                    provider.business_name
-                ),
-                category=provider.category,
-                city=provider.city,
-                rating=float(
-                    provider.rating or 0
-                ),
-                hourly_rate=float(
-                    provider.hourly_rate or 0
-                ),
-                created_at=(
-                    favorite.created_at
-                ),
-            )
-            for favorite, provider in rows
+            await self._hydrate_favorite(favorite, service)
+            for favorite, service in rows
         ]
 
     async def add_favorite(
         self,
         user: User,
-        provider_id: int,
-    ) -> FavoriteProviderRead:
-        provider = (
-            await self.profiles.get_provider(
-                provider_id
-            )
-        )
+        service_id: int,
+    ) -> FavoriteServiceRead:
+        from app.models.service import Service
+        service = await self.db.get(Service, service_id)
 
-        if provider is None:
+        if service is None:
             raise NotFoundError(
-                "Provider not found."
+                "Service not found."
             )
 
         existing = (
             await self.profiles.get_favorite(
                 user.id,
-                provider_id,
+                service_id,
             )
         )
 
         if existing:
             raise ConflictError(
-                "Provider is already in favorites."
+                "Service is already in favorites."
             )
 
         favorite = (
             await self.profiles.add_favorite(
                 user.id,
-                provider_id,
+                service_id,
             )
         )
 
         await self.db.commit()
         await self.db.refresh(favorite)
 
-        return FavoriteProviderRead(
-            id=favorite.id,
-            provider_id=provider.id,
-            business_name=(
-                provider.business_name
-            ),
-            category=provider.category,
-            city=provider.city,
-            rating=float(
-                provider.rating or 0
-            ),
-            hourly_rate=float(
-                provider.hourly_rate or 0
-            ),
-            created_at=favorite.created_at,
-        )
+        return await self._hydrate_favorite(favorite, service)
 
     async def remove_favorite(
         self,
         user: User,
-        provider_id: int,
+        service_id: int,
     ) -> None:
         favorite = (
             await self.profiles.get_favorite(
                 user.id,
-                provider_id,
+                service_id,
             )
         )
 
         if favorite is None:
             raise NotFoundError(
-                "Favorite provider not found."
+                "Favorite service not found."
             )
 
         await self.profiles.remove_favorite(

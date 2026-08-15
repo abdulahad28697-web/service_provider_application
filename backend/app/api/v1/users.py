@@ -12,7 +12,7 @@ from app.schemas.user_profile import (
     AddressRead,
     AddressUpdate,
     DeleteAccountRequest,
-    FavoriteProviderRead,
+    FavoriteServiceRead,
     UserProfileUpdate,
 )
 from app.services.user_profile_service import UserProfileService
@@ -185,13 +185,13 @@ async def delete_address(
 
 
 # ---------------------------------------------------------------------------
-# Favorite providers
+# Favorite services
 # ---------------------------------------------------------------------------
 
 @router.get(
     "/me/favorites",
     response_model=StandardResponse,
-    summary="List favorite providers",
+    summary="List favorite services",
 )
 async def list_favorites(
     user: User = Depends(get_current_user),
@@ -201,51 +201,51 @@ async def list_favorites(
 
     return success_response(
         data=[
-            FavoriteProviderRead.model_validate(favorite)
+            FavoriteServiceRead.model_validate(favorite)
             for favorite in favorites
         ],
-        message="Favorite providers fetched.",
+        message="Favorite services fetched.",
     )
 
 
 @router.post(
-    "/me/favorites/{provider_id}",
+    "/me/favorites/{service_id}",
     response_model=StandardResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Add a provider to favorites",
+    summary="Add a service to favorites",
 )
 async def add_favorite(
-    provider_id: int,
+    service_id: int,
     user: User = Depends(get_current_user),
     service: UserProfileService = Depends(_service),
 ):
     favorite = await service.add_favorite(
         user,
-        provider_id,
+        service_id,
     )
 
     return success_response(
-        data=FavoriteProviderRead.model_validate(favorite),
-        message="Provider added to favorites.",
+        data=FavoriteServiceRead.model_validate(favorite),
+        message="Service added to favorites.",
     )
 
 
 @router.delete(
-    "/me/favorites/{provider_id}",
+    "/me/favorites/{service_id}",
     response_model=StandardResponse,
-    summary="Remove a provider from favorites",
+    summary="Remove a service from favorites",
 )
 async def remove_favorite(
-    provider_id: int,
+    service_id: int,
     user: User = Depends(get_current_user),
     service: UserProfileService = Depends(_service),
 ):
     await service.remove_favorite(
         user,
-        provider_id,
+        service_id,
     )
 
     return success_response(
         data=None,
-        message="Provider removed from favorites.",
+        message="Service removed from favorites.",
     )

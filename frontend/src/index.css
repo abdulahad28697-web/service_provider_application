@@ -668,7 +668,7 @@ h3,
 .service-image {
   position: relative;
   display: grid;
-  height: 190px;
+  height: 160px;
   place-items: center;
   color: var(--primary);
   background: linear-gradient(145deg, #dbeafe, #eff6ff);

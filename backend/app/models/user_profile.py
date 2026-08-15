@@ -9,7 +9,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base, TimestampMixin
 
@@ -104,16 +104,16 @@ class UserAddress(Base, TimestampMixin):
     )
 
 
-class FavoriteProvider(Base, TimestampMixin):
-    """A provider saved by a customer."""
+class FavoriteService(Base, TimestampMixin):
+    """A service saved by a customer."""
 
-    __tablename__ = "favorite_providers"
+    __tablename__ = "favorite_services"
 
     __table_args__ = (
         UniqueConstraint(
             "user_id",
-            "provider_id",
-            name="uq_user_favorite_provider",
+            "service_id",
+            name="uq_user_favorite_service",
         ),
     )
 
@@ -129,10 +129,12 @@ class FavoriteProvider(Base, TimestampMixin):
         index=True,
     )
 
-    provider_id: Mapped[int] = mapped_column(
+    service_id: Mapped[int] = mapped_column(
         ForeignKey(
-            "providers.id",
+            "services.id",
             ondelete="CASCADE",
         ),
         index=True,
     )
+
+    service: Mapped["Service"] = relationship(back_populates="favorited_by")

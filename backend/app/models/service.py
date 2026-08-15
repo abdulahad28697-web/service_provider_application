@@ -116,6 +116,11 @@ class Service(Base, TimestampMixin):
         back_populates="service"
     )
 
+    favorited_by: Mapped[List["FavoriteService"]] = relationship(
+        back_populates="service",
+        cascade="all, delete-orphan",
+    )
+
     def __repr__(self) -> str:
         return (
             f"<Service id={self.id} "

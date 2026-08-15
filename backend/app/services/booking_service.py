@@ -456,6 +456,19 @@ class BookingService:
             user.role.value
         )
 
+        # Cancel/refund the payment if one exists
+        from app.models.payment import Payment, PaymentStatus
+        from sqlalchemy import select
+        payment_result = await self.db.execute(
+            select(Payment).where(Payment.booking_id == booking.id)
+        )
+        payment = payment_result.scalar_one_or_none()
+        if payment:
+            if payment.status == PaymentStatus.PAID:
+                payment.status = PaymentStatus.REFUNDED
+            elif payment.status == PaymentStatus.PENDING:
+                payment.status = PaymentStatus.FAILED
+
         # Notify the other participant about the cancellation.
         if user.id == booking.customer_id:
             provider = await self.providers.get(

@@ -5,7 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.constants import BookingStatus
 from app.common.pagination import Page, PageParams
-from app.common.utils import slugify
+from app.common.utils import (
+    generate_unique_slug,
+    slugify,
+)
 from app.core.exceptions import (
     ConflictError,
     ForbiddenError,
@@ -160,22 +163,12 @@ class ServiceService:
             else slugify(data.title)
         )
 
-        slug = f"{base_slug}-{provider.id}"
-
-        existing = await self.repo.get_by_slug(slug)
-
-        if existing is not None:
-            counter = 2
-
-            while (
-                await self.repo.get_by_slug(
-                    f"{slug}-{counter}"
-                )
-                is not None
-            ):
-                counter += 1
-
-            slug = f"{slug}-{counter}"
+        # Try base slug first; fall back to provider-id and counter on collision.
+        slug = await generate_unique_slug(
+            base_slug,
+            self.repo.get_by_slug,
+            suffix=str(provider.id),
+        )
 
         # -----------------------------------------------------
         # CREATE SERVICE
@@ -278,40 +271,20 @@ class ServiceService:
                 payload["slug"]
             )
 
-            new_slug = (
-                f"{base_slug}-{service.provider_id}"
-            )
-
-            if new_slug != service.slug:
+            # Generate a unique slug that doesn't collide with another
+            # service (the existing one we're updating is allowed to keep
+            # its own slug).
+            async def is_taken(candidate: str) -> bool:
                 existing = await self.repo.get_by_slug(
-                    new_slug
+                    candidate
                 )
+                return existing is not None and existing.id != service.id
 
-                if (
-                    existing is not None
-                    and existing.id != service.id
-                ):
-                    counter = 2
-
-                    candidate = (
-                        f"{new_slug}-{counter}"
-                    )
-
-                    while (
-                        await self.repo.get_by_slug(
-                            candidate
-                        )
-                        is not None
-                    ):
-                        counter += 1
-
-                        candidate = (
-                            f"{new_slug}-{counter}"
-                        )
-
-                    new_slug = candidate
-
-            payload["slug"] = new_slug
+            payload["slug"] = await generate_unique_slug(
+                base_slug,
+                is_taken,
+                suffix=str(service.provider_id),
+            )
 
         updated = await self.repo.update(
             service,
@@ -332,7 +305,11 @@ class ServiceService:
         service_id: int,
         user: User,
     ) -> None:
-        """Soft-delete a service by marking it inactive."""
+        """Soft-delete a service by marking it inactive.
+
+        Raises ConflictError if the service has active bookings
+        (PENDING, ACCEPTED, or COMPLETED).
+        """
 
         service = await self.get(service_id)
 
@@ -340,6 +317,25 @@ class ServiceService:
             service,
             user,
         )
+
+        # Check for active bookings that would be affected
+        active_booking_count = (
+            await self.db.execute(
+                select(func.count(Booking.id)).where(
+                    Booking.service_id == service_id,
+                    Booking.status.in_([
+                        BookingStatus.PENDING,
+                        BookingStatus.ACCEPTED,
+                        BookingStatus.COMPLETED,
+                    ]),
+                )
+            )
+        ).scalar_one()
+
+        if active_booking_count:
+            raise ConflictError(
+                "Cannot delete a service that has active bookings."
+            )
 
         service.is_active = False
 
@@ -402,6 +398,7 @@ class ServiceService:
             select(
                 User.full_name,
                 Provider.rating,
+                Provider.business_name,
             )
             .join(
                 Provider,
@@ -415,7 +412,7 @@ class ServiceService:
         provider_row = provider_result.first()
 
         if provider_row is not None:
-            read.provider_name = provider_row[0]
+            read.provider_name = provider_row[2] or provider_row[0]
             read.provider_rating = float(
                 provider_row[1] or 0
             )
