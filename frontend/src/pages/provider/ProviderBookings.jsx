@@ -16,6 +16,7 @@ import {
   RefreshCw,
   UserRound,
   WalletCards,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -91,6 +92,17 @@ export default function ProviderBookings() {
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    type: null,
+    bookingId: null,
+    paymentId: null,
+    title: "",
+    message: "",
+    needsReason: false,
+    reason: "",
+  });
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
@@ -225,119 +237,132 @@ export default function ProviderBookings() {
     }
   };
 
-  const rejectBooking = async (bookingId) => {
-    const reason = window.prompt(
-      "Reason for rejecting this booking (optional):",
-    );
-
-    if (reason === null) {
-      return;
-    }
-
-    setActionId(bookingId);
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await api.post(
-        `/bookings/${bookingId}/reject`,
-        {
-          reason: reason.trim() || null,
-        },
-      );
-
-      updateBooking(getData(response));
-
-      setMessage("Booking rejected.");
-    } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ||
-          requestError.response?.data?.detail ||
-          "Unable to reject this booking.",
-      );
-    } finally {
-      setActionId(null);
-    }
+  const rejectBooking = (bookingId) => {
+    setConfirmModal({
+      show: true,
+      type: "reject",
+      bookingId,
+      paymentId: null,
+      title: "Reject Booking",
+      message: "Are you sure you want to reject this booking?",
+      needsReason: true,
+      reason: "",
+    });
   };
 
-  const completeBooking = async (bookingId) => {
-    const confirmed = window.confirm(
-      "Mark this booking as completed?",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setActionId(bookingId);
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await api.post(
-        `/bookings/${bookingId}/complete`,
-      );
-
-      updateBooking(getData(response));
-
-      setMessage(
-        "Booking marked as completed successfully.",
-      );
-    } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ||
-          requestError.response?.data?.detail ||
-          "Unable to complete this booking.",
-      );
-    } finally {
-      setActionId(null);
-    }
+  const completeBooking = (bookingId) => {
+    setConfirmModal({
+      show: true,
+      type: "complete",
+      bookingId,
+      paymentId: null,
+      title: "Complete Booking",
+      message: "Mark this booking as completed?",
+      needsReason: false,
+      reason: "",
+    });
   };
 
-  const confirmCashPayment = async (
-    payment,
-  ) => {
+  const confirmCashPayment = (payment) => {
     if (!payment?.id) {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Confirm that you received the cash payment from the customer?",
-    );
+    setConfirmModal({
+      show: true,
+      type: "cash-payment",
+      bookingId: null,
+      paymentId: payment.id,
+      title: "Confirm Cash Payment",
+      message: "Confirm that you received the cash payment from the customer?",
+      needsReason: false,
+      reason: "",
+    });
+  };
 
-    if (!confirmed) {
-      return;
-    }
+  const handleConfirmAction = async () => {
+    const { type, bookingId, paymentId, reason } = confirmModal;
+    setConfirmModal({
+      show: false,
+      type: null,
+      bookingId: null,
+      paymentId: null,
+      title: "",
+      message: "",
+      needsReason: false,
+      reason: "",
+    });
 
-    try {
-      setPaymentActionId(payment.id);
+    if (type === "reject") {
+      setActionId(bookingId);
       setError("");
       setMessage("");
 
-      const response = await api.post(
-        `/payments/${payment.id}/cash-paid`,
-      );
+      try {
+        const response = await api.post(
+          `/bookings/${bookingId}/reject`,
+          {
+            reason: reason.trim() || null,
+          },
+        );
 
-      const updatedPayment =
-        getData(response);
+        updateBooking(getData(response));
+        setMessage("Booking rejected.");
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.message ||
+            requestError.response?.data?.detail ||
+            "Unable to reject this booking.",
+        );
+      } finally {
+        setActionId(null);
+      }
+    } else if (type === "complete") {
+      setActionId(bookingId);
+      setError("");
+      setMessage("");
 
-      setPaymentsByBooking((current) => ({
-        ...current,
-        [Number(updatedPayment.booking_id)]:
-          updatedPayment,
-      }));
+      try {
+        const response = await api.post(
+          `/bookings/${bookingId}/complete`,
+        );
 
-      setMessage(
-        "Cash payment confirmed successfully.",
-      );
-    } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ||
-          requestError.response?.data?.detail ||
-          "Unable to confirm the cash payment.",
-      );
-    } finally {
-      setPaymentActionId(null);
+        updateBooking(getData(response));
+        setMessage("Booking marked as completed successfully.");
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.message ||
+            requestError.response?.data?.detail ||
+            "Unable to complete this booking.",
+        );
+      } finally {
+        setActionId(null);
+      }
+    } else if (type === "cash-payment") {
+      try {
+        setPaymentActionId(paymentId);
+        setError("");
+        setMessage("");
+
+        const response = await api.post(
+          `/payments/${paymentId}/cash-paid`,
+        );
+
+        const updatedPayment = getData(response);
+        setPaymentsByBooking((current) => ({
+          ...current,
+          [Number(updatedPayment.booking_id)]: updatedPayment,
+        }));
+        setMessage("Cash payment confirmed successfully.");
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.message ||
+            requestError.response?.data?.detail ||
+            "Unable to confirm the cash payment.",
+        );
+      } finally {
+        setPaymentActionId(null);
+      }
     }
   };
 
@@ -1156,6 +1181,196 @@ export default function ProviderBookings() {
           </div>
         )}
       </div>
+
+      {/* =====================================================
+          CONFIRM MODAL
+      ====================================================== */}
+
+      {confirmModal.show && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setConfirmModal({
+                show: false,
+                type: null,
+                bookingId: null,
+                paymentId: null,
+                title: "",
+                message: "",
+                needsReason: false,
+                reason: "",
+              });
+            }
+          }}
+        >
+          <div
+            className="modal-container"
+            style={{
+              background: "#ffffff",
+              padding: "24px",
+              borderRadius: "16px",
+              maxWidth: "440px",
+              width: "90%",
+              boxShadow:
+                "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            }}
+          >
+            <div
+              className="modal-header"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "700",
+                  color: "#0f172a",
+                  margin: 0,
+                }}
+              >
+                {confirmModal.title}
+              </h2>
+              <button
+                className="icon-button"
+                onClick={() =>
+                  setConfirmModal({
+                    show: false,
+                    type: null,
+                    bookingId: null,
+                    paymentId: null,
+                    title: "",
+                    message: "",
+                    needsReason: false,
+                    reason: "",
+                  })
+                }
+                style={{
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  color: "#64748b",
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div
+              className="modal-body"
+              style={{
+                marginBottom: "24px",
+                color: "#475569",
+                fontSize: "15px",
+                lineHeight: "1.5",
+              }}
+            >
+              <p>{confirmModal.message}</p>
+            </div>
+
+            {confirmModal.needsReason && (
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#374151",
+                    marginBottom: "6px",
+                  }}
+                >
+                  Reason (optional)
+                </label>
+                <textarea
+                  className="text-input"
+                  rows={3}
+                  value={confirmModal.reason}
+                  onChange={(event) =>
+                    setConfirmModal((prev) => ({
+                      ...prev,
+                      reason: event.target.value,
+                    }))
+                  }
+                  placeholder="Why are you rejecting this booking?"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "8px",
+                    border: "1px solid #e2e8f0",
+                    fontSize: "14px",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+            )}
+
+            <div
+              className="modal-footer"
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <button
+                className="button button-outline"
+                onClick={() =>
+                  setConfirmModal({
+                    show: false,
+                    type: null,
+                    bookingId: null,
+                    paymentId: null,
+                    title: "",
+                    message: "",
+                    needsReason: false,
+                    reason: "",
+                  })
+                }
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="button button-danger"
+                onClick={handleConfirmAction}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  fontWeight: "600",
+                  backgroundColor: "#dc2626",
+                  color: "#ffffff",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

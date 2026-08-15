@@ -67,6 +67,7 @@ export default function Addresses() {
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const loadAddresses = useCallback(async () => {
     setLoading(true);
@@ -201,14 +202,7 @@ export default function Addresses() {
   };
 
   const deleteAddress = async (addressId) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this address?",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setConfirmDeleteId(null);
     setDeletingId(addressId);
     setError("");
     setSuccess("");
@@ -242,23 +236,23 @@ export default function Addresses() {
   };
 
   return (
-    <main className="page-shell">
-      <section className="page-section">
-        <div className="page-heading-row">
-          <div>
+    <section className="addresses-page">
+      <div className="page-container">
+        <div className="addresses-header">
+          <div className="addresses-header-content">
             <p className="eyebrow">Saved locations</p>
 
             <h1>Manage addresses</h1>
 
-            <p className="page-description">
+            <p>
               Add and manage the locations used for your
               service bookings.
             </p>
           </div>
 
-          <div className="page-actions">
+          <div className="addresses-header-actions">
             <button
-              className="button button-secondary"
+              className="button button-outline"
               type="button"
               onClick={loadAddresses}
               disabled={loading}
@@ -267,7 +261,6 @@ export default function Addresses() {
                 size={18}
                 className={loading ? "spin" : ""}
               />
-
               Refresh
             </button>
 
@@ -295,22 +288,22 @@ export default function Addresses() {
         )}
 
         {showForm && (
-          <section className="content-card address-form-card">
-            <div className="card-heading-row">
-              <div>
+          <section className="address-card" style={{ marginBottom: 24 }}>
+            <div className="address-card-header">
+              <div className="address-card-title">
+                <div className="address-icon">
+                  <MapPin size={22} />
+                </div>
+
                 <h2>
                   {editingId
                     ? "Edit address"
                     : "Add a new address"}
                 </h2>
-
-                <p>
-                  Enter the complete location details below.
-                </p>
               </div>
 
               <button
-                className="icon-button"
+                className="address-action-button"
                 type="button"
                 onClick={resetForm}
                 aria-label="Close address form"
@@ -320,10 +313,18 @@ export default function Addresses() {
             </div>
 
             <form
-              className="address-form"
+              className="auth-form"
               onSubmit={handleSubmit}
+              style={{ marginTop: 8 }}
             >
-              <div className="form-grid">
+              <div
+                className="form-grid"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                }}
+              >
                 <label className="form-field">
                   <span>Address label</span>
 
@@ -352,7 +353,10 @@ export default function Addresses() {
                   />
                 </label>
 
-                <label className="form-field form-field-full">
+                <label
+                  className="form-field"
+                  style={{ gridColumn: "1 / -1" }}
+                >
                   <span>Complete address</span>
 
                   <input
@@ -404,7 +408,15 @@ export default function Addresses() {
                   />
                 </label>
 
-                <label className="checkbox-field">
+                <label
+                  className="checkbox-field"
+                  style={{
+                    gridColumn: "1 / -1",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
                   <input
                     type="checkbox"
                     name="is_default"
@@ -416,9 +428,16 @@ export default function Addresses() {
                 </label>
               </div>
 
-              <div className="form-actions">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginTop: 20,
+                }}
+              >
                 <button
-                  className="button button-secondary"
+                  className="button button-outline"
                   type="button"
                   onClick={resetForm}
                 >
@@ -445,12 +464,12 @@ export default function Addresses() {
         )}
 
         {loading ? (
-          <div className="content-card empty-state">
+          <div className="address-empty-state">
             <RefreshCw className="spin" size={28} />
             <p>Loading your addresses...</p>
           </div>
         ) : addresses.length === 0 ? (
-          <div className="content-card empty-state">
+          <div className="address-empty-state">
             <MapPin size={36} />
 
             <h2>No saved addresses</h2>
@@ -474,24 +493,49 @@ export default function Addresses() {
           <div className="address-grid">
             {addresses.map((address) => (
               <article
-                className="content-card address-card"
+                className="address-card"
                 key={address.id}
               >
-                <div className="address-card-icon">
-                  <MapPin size={22} />
-                </div>
-
-                <div className="address-card-content">
+                <div className="address-card-header">
                   <div className="address-card-title">
-                    <h2>{address.label || "Address"}</h2>
+                    <div className="address-icon">
+                      <MapPin size={22} />
+                    </div>
 
-                    {address.is_default && (
-                      <span className="status-badge">
-                        Default
-                      </span>
-                    )}
+                    <h2>{address.label || "Address"}</h2>
                   </div>
 
+                  <div className="address-card-actions">
+                    <button
+                      className="address-action-button"
+                      type="button"
+                      onClick={() => openEditForm(address)}
+                      aria-label="Edit address"
+                    >
+                      <Edit3 size={18} />
+                    </button>
+
+                    <button
+                      className="address-action-button delete"
+                      type="button"
+                      onClick={() =>
+                        setConfirmDeleteId(address.id)
+                      }
+                      disabled={deletingId === address.id}
+                      aria-label="Delete address"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {address.is_default && (
+                  <span className="address-default-badge">
+                    Default
+                  </span>
+                )}
+
+                <div className="address-details">
                   <p>
                     {address.address_line_1 ||
                       address.address_line ||
@@ -514,34 +558,50 @@ export default function Addresses() {
 
                   <p>{address.country}</p>
                 </div>
-
-                <div className="address-card-actions">
-                  <button
-                    className="icon-button"
-                    type="button"
-                    onClick={() => openEditForm(address)}
-                    aria-label="Edit address"
-                  >
-                    <Edit3 size={18} />
-                  </button>
-
-                  <button
-                    className="icon-button icon-button-danger"
-                    type="button"
-                    onClick={() =>
-                      deleteAddress(address.id)
-                    }
-                    disabled={deletingId === address.id}
-                    aria-label="Delete address"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
               </article>
             ))}
           </div>
         )}
-      </section>
-    </main>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteId !== null && (
+        <div
+          className="modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setConfirmDeleteId(null);
+            }
+          }}
+        >
+          <div className="modal-card" role="dialog" aria-modal="true">
+            <div className="modal-heading">
+              <span className="eyebrow">Confirm deletion</span>
+              <h2>Delete this address?</h2>
+              <p>This action cannot be undone.</p>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={() => setConfirmDeleteId(null)}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="button button-danger"
+                onClick={() => deleteAddress(confirmDeleteId)}
+              >
+                <Trash2 size={18} />
+                Delete address
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

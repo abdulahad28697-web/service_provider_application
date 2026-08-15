@@ -113,10 +113,13 @@ async def forgot_password(
     payload: ForgotPasswordRequest,
     service: AuthService = Depends(_service),
 ):
-    await service.request_password_reset(str(payload.email))
+    token = await service.request_password_reset(str(payload.email))
+
+    if token:
+        print(f"\n[DEV ONLY] PASSWORD RESET TOKEN FOR {payload.email}: {token}\n", flush=True)
 
     return success_response(
-        data=None,
+        data={"reset_token": token} if settings.DEBUG else None,
         message=(
             "If an active account with this email exists, "
             "password-reset instructions have been sent."

@@ -44,7 +44,7 @@ from app.models.review import Review
 from app.models.schedule import ProviderSchedule
 from app.models.service import Service
 from app.models.user import User
-from app.models.user_profile import FavoriteProvider, UserProfile
+from app.models.user_profile import FavoriteService, UserProfile
 
 # All test accounts share this password.
 SEED_PASSWORD = "Password123"
@@ -592,14 +592,17 @@ async def seed() -> None:
             )
 
         # --- Favorites ----------------------------------------------------------
+        service_result = await session.execute(select(Service))
+        service_objs = service_result.scalars().all()
+
         for c in customer_users[:3]:
-            fav_provider = provider_objs[customer_users.index(c) % len(provider_objs)]
+            fav_service = service_objs[customer_users.index(c) % len(service_objs)]
             await _get_or_create(
                 session,
-                FavoriteProvider,
+                FavoriteService,
                 defaults={},
                 user_id=c.id,
-                provider_id=fav_provider.id,
+                service_id=fav_service.id,
             )
 
         await session.commit()

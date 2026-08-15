@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CalendarDays,
   Clock3,
@@ -9,6 +9,7 @@ import {
   Search,
   SlidersHorizontal,
   Star,
+  Store,
   Wrench,
   X,
   Heart,
@@ -124,8 +125,10 @@ export default function Services() {
     customer_notes: "",
   });
 
-  const [favoriteProviderIds, setFavoriteProviderIds] =
+  const [favoriteServiceIds, setFavoriteServiceIds] =
     useState([]);
+  const [searchParams] = useSearchParams();
+  const [savedAddresses, setSavedAddresses] = useState([]);
 
   // ---------------------------------------------------------
   // CURRENT USER
@@ -148,37 +151,37 @@ export default function Services() {
   // FAVORITES
   // ---------------------------------------------------------
 
-  const toggleFavorite = async (providerId) => {
+  const toggleFavorite = async (serviceId) => {
     if (!localStorage.getItem("access_token")) {
       navigate("/login");
       return;
     }
 
-    // Providers should not favorite providers.
+    // Providers should not favorite services.
     if (isProvider) {
       return;
     }
 
     try {
       const isFavorite =
-        favoriteProviderIds.includes(providerId);
+        favoriteServiceIds.includes(serviceId);
 
       if (isFavorite) {
         await api.delete(
-          `/users/me/favorites/${providerId}`,
+          `/users/me/favorites/${serviceId}`,
         );
 
-        setFavoriteProviderIds((current) =>
-          current.filter((id) => id !== providerId),
+        setFavoriteServiceIds((current) =>
+          current.filter((id) => id !== serviceId),
         );
       } else {
         await api.post(
-          `/users/me/favorites/${providerId}`,
+          `/users/me/favorites/${serviceId}`,
         );
 
-        setFavoriteProviderIds((current) => [
+        setFavoriteServiceIds((current) => [
           ...current,
-          providerId,
+          serviceId,
         ]);
       }
     } catch (requestError) {
@@ -288,6 +291,46 @@ export default function Services() {
     loadServices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load customer favorites (service IDs)
+  useEffect(() => {
+    if (!isCustomer) return;
+
+    const loadFavorites = async () => {
+      try {
+        const response = await api.get("/users/me/favorites");
+        const items =
+          response?.data?.data ??
+          response?.data ??
+          [];
+        const ids = (Array.isArray(items) ? items : []).map(
+          (fav) => Number(fav.service_id ?? fav.id),
+        );
+        setFavoriteServiceIds(ids);
+      } catch {
+        // ignore – favorites are non-critical
+      }
+    };
+
+    loadFavorites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-open a specific service from URL ?service=ID
+  useEffect(() => {
+    const serviceIdParam = searchParams.get("service");
+    if (!serviceIdParam || services.length === 0 || !isCustomer) return;
+
+    const targetId = Number(serviceIdParam);
+    const targetService = services.find(
+      (s) => Number(s.id) === targetId,
+    );
+
+    if (targetService) {
+      openBookingForm(targetService);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, searchParams]);
 
   // ---------------------------------------------------------
   // SEARCH / FILTERS / SORTING
@@ -513,11 +556,13 @@ export default function Services() {
       const [
         profileResponse,
         availabilityResponse,
+        addressesResponse,
       ] = await Promise.all([
         api.get("/users/me"),
         api.get(
           `/providers/${service.provider_id}/availability`,
         ),
+        api.get("/users/me/addresses").catch(() => ({ data: [] })),
       ]);
 
       const profile =
@@ -557,6 +602,42 @@ export default function Services() {
         })),
       );
 
+      // Load saved addresses and pre-fill location
+      const addressPayload =
+        addressesResponse?.data?.data ??
+        addressesResponse?.data ??
+        [];
+
+      const addresses = Array.isArray(addressPayload)
+        ? addressPayload
+        : Array.isArray(addressPayload?.items)
+          ? addressPayload.items
+          : [];
+
+      setSavedAddresses(addresses);
+
+      const defaultAddress = addresses.find(
+        (a) => a.is_default,
+      ) || addresses[0] || null;
+
+      const defaultLocation = defaultAddress
+        ? [
+            defaultAddress.address_line_1 ||
+              defaultAddress.address_line ||
+              defaultAddress.address ||
+              defaultAddress.street_address,
+            defaultAddress.city,
+            defaultAddress.state ||
+              defaultAddress.state_or_province ||
+              defaultAddress.province,
+            defaultAddress.postal_code ||
+              defaultAddress.zip_code,
+            defaultAddress.country,
+          ]
+            .filter(Boolean)
+            .join(", ")
+        : "";
+
       setSelectedService(service);
 
       setBookingForm({
@@ -564,7 +645,7 @@ export default function Services() {
         scheduled_start: "",
         customer_name: customerName,
         phone_number: phoneNumber,
-        location: "",
+        location: defaultLocation,
         customer_notes: "",
       });
     } catch (requestError) {
@@ -1160,8 +1241,8 @@ export default function Services() {
                     <button
                       type="button"
                       className={`favorite-button ${
-                        favoriteProviderIds.includes(
-                          service.provider_id,
+                        favoriteServiceIds.includes(
+                          service.id,
                         )
                           ? "favorite-button-active"
                           : ""
@@ -1170,17 +1251,17 @@ export default function Services() {
                         event.stopPropagation();
 
                         toggleFavorite(
-                          service.provider_id,
+                          service.id,
                         );
                       }}
-                      aria-label="Add provider to favorites"
-                      title="Add provider to favorites"
+                      aria-label="Save service to favorites"
+                      title="Save service to favorites"
                     >
                       <Heart
                         size={22}
                         fill={
-                          favoriteProviderIds.includes(
-                            service.provider_id,
+                          favoriteServiceIds.includes(
+                            service.id,
                           )
                             ? "currentColor"
                             : "none"
@@ -1225,18 +1306,11 @@ export default function Services() {
                   <h2>{service.title}</h2>
 
                   {service.provider_name && (
-  <button
-    type="button"
-    className="service-provider-link"
-    onClick={() =>
-      navigate(
-        `/providers/${service.provider_id}`,
-      )
-    }
-  >
-    {service.provider_name}
-  </button>
-)}
+                    <div className="service-provider-label">
+                      <Store size={14} />
+                      <span>Provided by <strong>{service.provider_name}</strong></span>
+                    </div>
+                  )}
 
 <div className="service-rating">
   <Star
@@ -1536,6 +1610,59 @@ export default function Services() {
 
               <label className="form-field">
                 <span>Service location</span>
+
+                {savedAddresses.length > 0 && (
+                  <div className="input-with-icon">
+                    <MapPin size={18} />
+
+                    <select
+                      value=""
+                      onChange={(event) => {
+                        if (event.target.value) {
+                          setBookingForm((current) => ({
+                            ...current,
+                            location: event.target.value,
+                          }));
+                        }
+                      }}
+                    >
+                      <option value="">
+                        Use a saved address
+                      </option>
+
+                      {savedAddresses.map((addr) => {
+                        const full = [
+                          addr.address_line_1 ||
+                            addr.address_line ||
+                            addr.address ||
+                            addr.street_address,
+                          addr.city,
+                          addr.state ||
+                            addr.state_or_province ||
+                            addr.province,
+                          addr.postal_code ||
+                            addr.zip_code,
+                          addr.country,
+                        ]
+                          .filter(Boolean)
+                          .join(", ");
+
+                        return (
+                          <option
+                            key={addr.id}
+                            value={full}
+                          >
+                            {addr.label || "Address"}
+                            {addr.is_default
+                              ? " (Default)"
+                              : ""}{" "}
+                            — {full}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
 
                 <div className="input-with-icon">
                   <MapPin size={18} />

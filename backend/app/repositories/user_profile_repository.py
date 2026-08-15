@@ -5,9 +5,9 @@ from typing import Optional, Sequence
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.provider import Provider
+from app.models.service import Service
 from app.models.user_profile import (
-    FavoriteProvider,
+    FavoriteService,
     UserAddress,
     UserProfile,
 )
@@ -185,25 +185,16 @@ class UserProfileRepository:
                 self.db.add(next_address)
                 await self.db.flush()
 
-    async def get_provider(
-        self,
-        provider_id: int,
-    ) -> Optional[Provider]:
-        return await self.db.get(
-            Provider,
-            provider_id,
-        )
-
     async def get_favorite(
         self,
         user_id: int,
-        provider_id: int,
-    ) -> Optional[FavoriteProvider]:
+        service_id: int,
+    ) -> Optional[FavoriteService]:
         result = await self.db.execute(
-            select(FavoriteProvider).where(
-                FavoriteProvider.user_id == user_id,
-                FavoriteProvider.provider_id
-                == provider_id,
+            select(FavoriteService).where(
+                FavoriteService.user_id == user_id,
+                FavoriteService.service_id
+                == service_id,
             )
         )
 
@@ -212,11 +203,11 @@ class UserProfileRepository:
     async def add_favorite(
         self,
         user_id: int,
-        provider_id: int,
-    ) -> FavoriteProvider:
-        favorite = FavoriteProvider(
+        service_id: int,
+    ) -> FavoriteService:
+        favorite = FavoriteService(
             user_id=user_id,
-            provider_id=provider_id,
+            service_id=service_id,
         )
 
         self.db.add(favorite)
@@ -230,19 +221,19 @@ class UserProfileRepository:
     ):
         result = await self.db.execute(
             select(
-                FavoriteProvider,
-                Provider,
+                FavoriteService,
+                Service,
             )
             .join(
-                Provider,
-                Provider.id
-                == FavoriteProvider.provider_id,
+                Service,
+                Service.id
+                == FavoriteService.service_id,
             )
             .where(
-                FavoriteProvider.user_id == user_id
+                FavoriteService.user_id == user_id
             )
             .order_by(
-                FavoriteProvider.created_at.desc()
+                FavoriteService.created_at.desc()
             )
         )
 
@@ -250,7 +241,7 @@ class UserProfileRepository:
 
     async def remove_favorite(
         self,
-        favorite: FavoriteProvider,
+        favorite: FavoriteService,
     ) -> None:
         await self.db.delete(favorite)
         await self.db.flush()

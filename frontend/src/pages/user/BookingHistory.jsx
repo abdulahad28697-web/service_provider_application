@@ -251,6 +251,15 @@ function BookingHistory() {
   const [submittingReview, setSubmittingReview] =
     useState(false);
 
+  // ---------------------------------------------------------
+  // CANCEL MODAL
+  // ---------------------------------------------------------
+
+  const [cancelModal, setCancelModal] = useState({
+    show: false,
+    bookingId: null,
+    reason: "",
+  });
 
   // ---------------------------------------------------------
   // LOAD BOOKINGS + REVIEWS
@@ -484,22 +493,23 @@ function BookingHistory() {
   // CANCELLATION
   // ---------------------------------------------------------
 
-  const cancelBooking = async (bookingId) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to cancel this booking?",
-    );
+  const cancelBooking = (bookingId) => {
+    setCancelModal({
+      show: true,
+      bookingId,
+      reason: "",
+    });
+  };
 
-    if (!confirmed) {
-      return;
-    }
+  const handleConfirmCancel = async () => {
+    const { bookingId, reason } = cancelModal;
+    if (!bookingId) return;
 
-    const reason = window.prompt(
-      "Please enter the reason for cancelling this booking (optional):",
-    );
-
-    if (reason === null) {
-      return;
-    }
+    setCancelModal({
+      show: false,
+      bookingId: null,
+      reason: "",
+    });
 
     try {
       setCancellingId(bookingId);
@@ -2117,6 +2127,108 @@ function BookingHistory() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          CANCEL MODAL
+      ====================================================== */}
+
+      {cancelModal.show && (
+        <div
+          className="modal-overlay"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              setCancelModal((prev) => ({
+                ...prev,
+                show: false,
+              }));
+            }
+          }}
+        >
+          <div
+            className="modal-card booking-cancel-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-title"
+          >
+            <button
+              type="button"
+              className="modal-close"
+              onClick={() =>
+                setCancelModal((prev) => ({
+                  ...prev,
+                  show: false,
+                }))
+              }
+              aria-label="Close cancel dialog"
+            >
+              <X size={22} />
+            </button>
+
+            <div className="modal-heading">
+              <span className="eyebrow">
+                Cancel booking
+              </span>
+              <h2 id="cancel-title">
+                Cancel this booking?
+              </h2>
+              <p>
+                This action cannot be undone.
+                You may need to contact the
+                provider for a refund.
+              </p>
+            </div>
+
+            <div className="booking-cancel-reason">
+              <label className="form-field">
+                <span>Cancellation reason (optional)</span>
+                <textarea
+                  className="text-input"
+                  rows={4}
+                  value={cancelModal.reason}
+                  onChange={(event) =>
+                    setCancelModal((prev) => ({
+                      ...prev,
+                      reason:
+                        event.target.value,
+                    }))
+                  }
+                  placeholder="Tell us why you're cancelling..."
+                  maxLength={1000}
+                />
+                <small className="review-character-count">
+                  {cancelModal.reason.length}/1000
+                </small>
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={() =>
+                  setCancelModal({
+                    show: false,
+                    bookingId: null,
+                    reason: "",
+                  })
+                }
+              >
+                Keep booking
+              </button>
+              <button
+                type="button"
+                className="button button-danger"
+                onClick={handleConfirmCancel}
+              >
+                Cancel booking
+              </button>
+            </div>
           </div>
         </div>
       )}

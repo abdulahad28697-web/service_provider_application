@@ -3644,26 +3644,31 @@
   font-size: 13px;
 }
 
-.service-provider-link {
-  display: inline-block;
+.service-provider-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 
-  margin: 0 0 5px;
-  padding: 0;
+  margin: 0 0 6px;
+  padding: 4px 10px;
 
-  border: none;
-  background: transparent;
+  border-radius: 6px;
+  background: #f1f5f9;
 
-  color: #2563eb;
-
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-
-  cursor: pointer;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
-.service-provider-link:hover {
-  text-decoration: underline;
+.service-provider-label strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.service-provider-label svg {
+  flex-shrink: 0;
+  color: #2563eb;
 }
 
 /* =========================================================

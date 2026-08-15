@@ -154,16 +154,20 @@ class AddressRead(BaseModel):
     updated_at: datetime
 
 
-class FavoriteProviderRead(BaseModel):
-    """Favorite provider response."""
+class FavoriteServiceRead(BaseModel):
+    """Favorite service response."""
 
     id: int
-    provider_id: int
-    business_name: str
-    category: str
-    city: str
-    rating: float
-    hourly_rate: float
+    service_id: int
+    title: str
+    price: float
+    price_unit: str
+    duration_minutes: int
+    images: list[str]
+    category_name: Optional[str] = None
+    provider_name: Optional[str] = None
+    provider_rating: float = 0.0
+    review_count: int = 0
     created_at: datetime
 
 

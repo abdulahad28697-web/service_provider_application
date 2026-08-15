@@ -398,6 +398,7 @@ class ServiceService:
             select(
                 User.full_name,
                 Provider.rating,
+                Provider.business_name,
             )
             .join(
                 Provider,
@@ -411,7 +412,7 @@ class ServiceService:
         provider_row = provider_result.first()
 
         if provider_row is not None:
-            read.provider_name = provider_row[0]
+            read.provider_name = provider_row[2] or provider_row[0]
             read.provider_rating = float(
                 provider_row[1] or 0
             )
