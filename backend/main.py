@@ -4,6 +4,7 @@ Run locally:  ``uvicorn main:app --reload``
 Run in Docker: ``docker compose up``
 """
 from contextlib import asynccontextmanager
+import logging
 import time
 from fastapi.staticfiles import StaticFiles
 from app.uploads.utils import ensure_upload_directories
@@ -24,6 +25,9 @@ from app.database.base import Base
 from app.database.database import engine
 
 
+logger = logging.getLogger("servicehub")
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Simple in-memory rate limiter for API endpoints."""
 
@@ -32,17 +36,40 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.requests_per_minute = requests_per_minute
         self.requests: defaultdict[str, list[float]] = defaultdict(list)
 
+    def _client_key(self, request: Request) -> str:
+        """Identify the caller behind a reverse proxy.
+
+        The frontend is served by nginx, so ``request.client.host`` is the
+        proxy's address for every visitor. Without the forwarded headers all
+        users would share a single bucket and legitimate actions (such as an
+        admin approving a provider) would be rejected with 429.
+        """
+        if settings.TRUST_PROXY_HEADERS:
+            forwarded_for = request.headers.get("x-forwarded-for")
+            if forwarded_for:
+                return forwarded_for.split(",")[0].strip()
+
+            real_ip = request.headers.get("x-real-ip")
+            if real_ip:
+                return real_ip.strip()
+
+        return request.client.host if request.client else "unknown"
+
     async def dispatch(self, request: Request, call_next):
         # Skip rate limiting for health checks and static files
         if request.url.path in ("/", "/health") or request.url.path.startswith("/media"):
+            return await call_next(request)
+
+        # CORS preflight requests carry no credentials and must never be
+        # throttled, otherwise the browser blocks the real request.
+        if request.method == "OPTIONS":
             return await call_next(request)
 
         # Skip if in debug mode
         if settings.DEBUG:
             return await call_next(request)
 
-        # Get client IP
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = self._client_key(request)
 
         # Clean old entries and count recent requests
         now = time.time()
@@ -55,6 +82,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check rate limit
         if len(client_requests) >= self.requests_per_minute:
+            logger.warning(
+                "Rate limit exceeded for %s on %s %s.",
+                client_ip,
+                request.method,
+                request.url.path,
+            )
             return JSONResponse(
                 status_code=429,
                 content={
@@ -99,6 +132,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables on startup. For production, prefer Alembic migrations; this
@@ -132,7 +171,10 @@ def create_app() -> FastAPI:
     application.add_middleware(SecurityHeadersMiddleware)
 
     # Add rate limiting middleware
-    application.add_middleware(RateLimitMiddleware, requests_per_minute=120)
+    application.add_middleware(
+        RateLimitMiddleware,
+        requests_per_minute=settings.RATE_LIMIT_PER_MINUTE,
+    )
 
     application.add_middleware(
         CORSMiddleware,

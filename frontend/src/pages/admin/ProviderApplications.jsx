@@ -40,8 +40,16 @@ export default function ProviderApplications() {
         usersResponse,
         servicesResponse,
       ] = await Promise.all([
-        api.get("/admin/providers"),
-        api.get("/admin/users"),
+        api.get("/admin/providers", {
+          params: {
+            limit: 500,
+          },
+        }),
+        api.get("/admin/users", {
+          params: {
+            limit: 500,
+          },
+        }),
         api.get("/services", {
           params: {
             page_size: 100,

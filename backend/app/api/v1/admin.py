@@ -15,9 +15,11 @@ from app.core.permissions import (
     require_provider,
 )
 from app.database.session import get_db
+from app.models.provider import Provider
 from app.models.user import User
 from app.schemas.admin import (
     AdminLogRead,
+    ProviderDetailRead,
     ProviderOnboard,
     ProviderRead,
     ProviderVerifyRequest,
@@ -61,6 +63,20 @@ def _bookings(
     """Build a BookingService bound to the request session."""
 
     return BookingService(db)
+
+
+def _provider_detail(
+    provider: Provider,
+    owner: Optional[User],
+) -> ProviderDetailRead:
+    """Serialise a provider together with its account owner."""
+
+    detail = ProviderDetailRead.model_validate(provider)
+
+    if owner is not None:
+        detail.owner = UserRead.model_validate(owner)
+
+    return detail
 
 
 # ============================================================
@@ -143,6 +159,9 @@ async def list_providers(
     category: Optional[str] = Query(
         default=None,
     ),
+    is_verified: Optional[bool] = Query(
+        default=None,
+    ),
     skip: int = Query(
         default=0,
         ge=0,
@@ -159,6 +178,7 @@ async def list_providers(
         skip=skip,
         limit=limit,
         category=category,
+        is_verified=is_verified,
     )
 
     return success_response(
@@ -167,6 +187,26 @@ async def list_providers(
             for provider in providers
         ],
         message="Providers fetched.",
+    )
+
+
+@router.get(
+    "/providers/{provider_id}",
+    response_model=StandardResponse,
+    summary="Get a single provider application (admin)",
+)
+async def get_provider(
+    provider_id: int,
+    service: AdminService = Depends(_admin),
+    _admin_user: User = Depends(require_admin),
+):
+    provider, owner = await service.get_provider_detail(
+        provider_id
+    )
+
+    return success_response(
+        data=_provider_detail(provider, owner),
+        message="Provider fetched.",
     )
 
 
@@ -181,17 +221,19 @@ async def verify_provider(
     service: AdminService = Depends(_admin),
     admin_user: User = Depends(require_admin),
 ):
-    provider = await service.verify_provider(
+    provider, owner = await service.verify_provider(
         provider_id,
         payload,
         admin_user,
     )
 
     return success_response(
-        data=ProviderRead.model_validate(
-            provider
+        data=_provider_detail(provider, owner),
+        message=(
+            "Provider approved."
+            if payload.is_verified
+            else "Provider application rejected."
         ),
-        message="Provider updated.",
     )
 
 

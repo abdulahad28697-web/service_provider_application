@@ -11,6 +11,22 @@ const api = axios.create({
 });
 
 /*
+ * Human-readable fallbacks for responses that carry no message.
+ */
+const DEFAULT_MESSAGES = {
+  400: "The request was invalid. Please review the form and try again.",
+  401: "Your session has expired. Please sign in again.",
+  403: "You do not have permission to perform this action.",
+  404: "The requested record could not be found.",
+  409: "This action conflicts with the current data.",
+  422: "Some fields are invalid. Please review the form.",
+  429: "Too many requests. Please wait a moment and try again.",
+  500: "Something went wrong on the server. Please try again.",
+  502: "The server is unreachable. Please try again shortly.",
+  503: "The server is unreachable. Please try again shortly.",
+};
+
+/*
  * Attach the access token to every API request.
  */
 api.interceptors.request.use(
@@ -47,6 +63,20 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const requestUrl = error.config?.url || "";
+    const payload = error.response?.data;
+
+    if (error.response && payload && !payload.message) {
+      payload.message = payload.detail || DEFAULT_MESSAGES[status];
+    }
+
+    if (!error.response) {
+      error.response = {
+        data: {
+          message:
+            "Network error. Check your connection and try again.",
+        },
+      };
+    }
 
     if (status === 401) {
       const isAuthenticationRequest =

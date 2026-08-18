@@ -23,42 +23,34 @@ export default function ProviderDetails() {
   const [provider, setProvider] = useState(null);
   const [owner, setOwner] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const applyProviderPayload = (payload) => {
+    if (!payload) {
+      return;
+    }
+
+    const { owner: providerOwner, ...providerData } = payload;
+
+    setProvider(providerData);
+    setOwner(providerOwner || null);
+  };
 
   const loadProvider = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [providersResponse, usersResponse] = await Promise.all([
-        api.get("/admin/providers"),
-        api.get("/admin/users"),
-      ]);
-
-      const providers = providersResponse.data?.data || [];
-      const users = usersResponse.data?.data || [];
-
-      const selectedProvider = providers.find(
-        (item) => Number(item.id) === Number(providerId),
+      const response = await api.get(
+        `/admin/providers/${providerId}`,
       );
 
-      if (!selectedProvider) {
-        setError("Provider application not found.");
-        setProvider(null);
-        setOwner(null);
-        return;
-      }
-
-      const providerOwner = users.find(
-        (item) =>
-          Number(item.id) === Number(selectedProvider.user_id),
-      );
-
-      setProvider(selectedProvider);
-      setOwner(providerOwner || null);
+      applyProviderPayload(response.data?.data);
     } catch (requestError) {
+      setProvider(null);
+      setOwner(null);
       setError(
         requestError.response?.data?.message ||
           requestError.response?.data?.detail ||
@@ -74,7 +66,7 @@ export default function ProviderDetails() {
   }, [providerId]);
 
   const updateVerification = async (isVerified) => {
-    setSubmitting(true);
+    setSubmitting(isVerified ? "approve" : "reject");
     setError("");
     setMessage("");
 
@@ -86,13 +78,7 @@ export default function ProviderDetails() {
         },
       );
 
-      const updatedProvider = response.data?.data;
-
-      setProvider((current) => ({
-        ...current,
-        ...updatedProvider,
-        is_verified: isVerified,
-      }));
+      applyProviderPayload(response.data?.data);
 
       setMessage(
         isVerified
@@ -105,8 +91,12 @@ export default function ProviderDetails() {
           requestError.response?.data?.detail ||
           "Unable to update the provider application.",
       );
+
+      // Re-read the record so the page never shows a decision that the
+      // database did not accept.
+      await loadProvider();
     } finally {
-      setSubmitting(false);
+      setSubmitting(null);
     }
   };
 
@@ -341,20 +331,24 @@ export default function ProviderDetails() {
               type="button"
               className="button button-danger-outline"
               onClick={() => updateVerification(false)}
-              disabled={submitting}
+              disabled={Boolean(submitting)}
             >
               <Ban size={18} />
-              {submitting ? "Updating..." : "Reject"}
+              {submitting === "reject"
+                ? "Rejecting..."
+                : "Reject"}
             </button>
 
             <button
               type="button"
               className="button"
               onClick={() => updateVerification(true)}
-              disabled={submitting}
+              disabled={Boolean(submitting)}
             >
               <BadgeCheck size={18} />
-              {submitting ? "Updating..." : "Approve provider"}
+              {submitting === "approve"
+                ? "Approving..."
+                : "Approve provider"}
             </button>
           </div>
         </section>

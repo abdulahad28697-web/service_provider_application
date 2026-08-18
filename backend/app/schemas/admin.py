@@ -49,6 +49,12 @@ class ProviderRead(BaseModel):
     address: str
 
 
+class ProviderDetailRead(ProviderRead):
+    """A provider profile together with its account owner."""
+
+    owner: Optional[UserRead] = None
+
+
 class ProviderVerifyRequest(BaseModel):
     """Payload to verify/reject a provider profile."""
 
