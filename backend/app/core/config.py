@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     ENABLE_REDIS: bool = True
     NOTIFICATION_CHANNEL: str = "servicehub:notifications"
 
+    # --- Rate limiting ------------------------------------------------------
+    RATE_LIMIT_PER_MINUTE: int = 600
+    # The API runs behind nginx, so the forwarded headers identify the caller.
+    TRUST_PROXY_HEADERS: bool = True
+
     # --- CORS ---------------------------------------------------------------
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
 

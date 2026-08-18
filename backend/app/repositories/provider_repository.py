@@ -75,9 +75,14 @@ class ProviderRepository(BaseRepository):
         skip: int = 0,
         limit: int = 100,
         category: Optional[str] = None,
+        is_verified: Optional[bool] = None,
     ) -> Sequence[Provider]:
+        # Unverified applications first, newest first, so a fresh application
+        # is always on the first page of the admin review queue.
         statement = select(Provider).order_by(
-            Provider.rating.desc()
+            Provider.is_verified.asc(),
+            Provider.created_at.desc(),
+            Provider.id.desc(),
         )
 
         if category:
@@ -85,6 +90,11 @@ class ProviderRepository(BaseRepository):
                 Provider.category.ilike(
                     f"%{category}%"
                 )
+            )
+
+        if is_verified is not None:
+            statement = statement.where(
+                Provider.is_verified.is_(is_verified)
             )
 
         result = await self.db.execute(

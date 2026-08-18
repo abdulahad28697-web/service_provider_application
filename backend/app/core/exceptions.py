@@ -3,6 +3,7 @@
 Modules raise the semantic exceptions below; a central handler maps each to the
 appropriate HTTP status + a consistent JSON body so controllers stay thin.
 """
+import logging
 from typing import Any, Optional
 
 from fastapi import FastAPI, Request, status
@@ -10,6 +11,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.common.responses import error_response
+
+logger = logging.getLogger(__name__)
 
 
 class AppError(Exception):
@@ -68,6 +71,13 @@ def _build_payload(status_code: int, code: str, message: str, details=None) -> d
 
 
 def _handle_app_error(request: Request, exc: AppError) -> JSONResponse:
+    logger.warning(
+        "%s %s failed: %s (%s)",
+        request.method,
+        request.url.path,
+        exc.message,
+        exc.code,
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content=_build_payload(exc.status_code, exc.code, exc.message, exc.details),
@@ -91,7 +101,25 @@ def _handle_validation_error(request: Request, exc: RequestValidationError) -> J
     )
 
 
+def _handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+    """Log an unhandled error and keep the uniform response envelope."""
+    logger.exception(
+        "Unhandled error on %s %s.",
+        request.method,
+        request.url.path,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=_build_payload(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "An unexpected error occurred. Please try again.",
+        ),
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach all domain exception handlers to a FastAPI instance."""
     app.add_exception_handler(AppError, _handle_app_error)
     app.add_exception_handler(RequestValidationError, _handle_validation_error)
+    app.add_exception_handler(Exception, _handle_unexpected_error)
