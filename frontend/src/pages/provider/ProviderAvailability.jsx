@@ -31,8 +31,8 @@ function createDefaultDay(day) {
     id: null,
     day_of_week: day,
     start_time: "09:00",
-    end_time: "17:00",
-    is_available: false,
+    end_time: "18:00",
+    is_available: day !== "sunday",
   };
 }
 
@@ -221,6 +221,48 @@ export default function ProviderAvailability() {
     }
   };
 
+  const applyStandardHours = () => {
+    setSchedule((current) =>
+      current.map((item) => ({
+        ...item,
+        start_time: "09:00",
+        end_time: "18:00",
+        is_available: item.day_of_week !== "sunday",
+      }))
+    );
+    setMessage("Standard hours applied (Mon-Sat 9AM-6PM). Click 'Save All' or save individual days.");
+  };
+
+  const saveAllDays = async () => {
+    setError("");
+    setMessage("");
+    setLoading(true);
+
+    try {
+      for (const slot of schedule) {
+        if (slot.is_available && slot.start_time >= slot.end_time) {
+          throw new Error(`${formatDay(slot.day_of_week)}: start time must be before end time.`);
+        }
+        await api.put("/bookings/schedules", {
+          day_of_week: slot.day_of_week,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          is_available: slot.is_available,
+        });
+      }
+      setMessage("All weekly availability updated successfully.");
+      await loadSchedule();
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+          requestError.response?.data?.detail ||
+          requestError.message ||
+          "Unable to save all schedules."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   function formatDay(day) {
     return (
@@ -245,26 +287,45 @@ export default function ProviderAvailability() {
             </h1>
 
             <p>
-              Choose the days and working hours
-              customers can request your services.
+              Choose the days and working hours customers can request your services.
             </p>
           </div>
 
-          <button
-            type="button"
-            className="button"
-            onClick={loadSchedule}
-            disabled={loading}
-          >
-            <RefreshCw
-              size={18}
-              className={
-                loading ? "spin" : ""
-              }
-            />
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="button button-outline"
+              onClick={applyStandardHours}
+              disabled={loading}
+            >
+              Apply Standard Hours (9AM-6PM)
+            </button>
 
-            Refresh
-          </button>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={saveAllDays}
+              disabled={loading}
+            >
+              <Save size={18} />
+              Save All
+            </button>
+
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={loadSchedule}
+              disabled={loading}
+            >
+              <RefreshCw
+                size={18}
+                className={
+                  loading ? "spin" : ""
+                }
+              />
+              Refresh
+            </button>
+          </div>
         </section>
 
 

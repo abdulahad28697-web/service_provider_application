@@ -18,6 +18,7 @@ from app.database.session import get_db
 from app.models.user import User
 from app.schemas.admin import (
     AdminLogRead,
+    ProviderDetailRead,
     ProviderOnboard,
     ProviderRead,
     ProviderVerifyRequest,
@@ -170,6 +171,24 @@ async def list_providers(
     )
 
 
+@router.get(
+    "/providers/{provider_id}",
+    response_model=StandardResponse,
+    summary="Get single provider details (admin)",
+)
+async def get_provider_details(
+    provider_id: int,
+    service: AdminService = Depends(_admin),
+    _admin_user: User = Depends(require_admin),
+):
+    provider_data = await service.get_provider_details(provider_id)
+
+    return success_response(
+        data=ProviderDetailRead.model_validate(provider_data),
+        message="Provider details fetched.",
+    )
+
+
 @router.put(
     "/providers/{provider_id}/verify",
     response_model=StandardResponse,
@@ -187,12 +206,23 @@ async def verify_provider(
         admin_user,
     )
 
-    return success_response(
-        data=ProviderRead.model_validate(
-            provider
-        ),
-        message="Provider updated.",
+    if provider is None:
+        return success_response(
+            data=None,
+            message="Provider application rejected and removed.",
+        )
+
+    message = (
+        "Provider application approved."
+        if payload.is_verified
+        else "Provider updated."
     )
+
+    return success_response(
+        data=ProviderRead.model_validate(provider),
+        message=message,
+    )
+
 
 
 # ============================================================

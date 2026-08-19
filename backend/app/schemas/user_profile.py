@@ -45,6 +45,7 @@ class UserProfileRead(BaseModel):
     """Combined account and profile response."""
 
     user_id: int
+    id: Optional[int] = None
     email: EmailStr
     full_name: str
     role: UserRole

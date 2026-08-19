@@ -59,7 +59,10 @@ def require_role(*roles: UserRole):
     """
 
     async def _role_checker(user: User = Depends(get_current_user)) -> User:
-        if user.role not in roles:
+        allowed_roles = {r.value if hasattr(r, "value") else str(r) for r in roles}
+        user_role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
+
+        if user_role_val not in allowed_roles and user.role not in roles:
             raise UnauthorizedError("You do not have permission to perform this action.")
         return user
 

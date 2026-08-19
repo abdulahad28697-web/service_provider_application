@@ -8349,3 +8349,380 @@
     font-size: 15px;
   }
 }
+
+
+/* =========================================================
+   SERVICE GALLERY UPLOADER & IMAGE BANNER STYLES
+========================================================= */
+
+.service-gallery-uploader {
+  margin-top: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+
+.gallery-upload-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.gallery-upload-hint {
+  margin: 4px 0 16px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.service-image-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.service-image-thumb {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.service-image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-thumb-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(15, 23, 42, 0.75);
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.remove-thumb-btn:hover {
+  background: #ef4444;
+}
+
+.service-image-upload-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 120px;
+  height: 90px;
+  border: 2px dashed #94a3b8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.service-image-upload-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.provider-service-card-banner {
+  width: calc(100% + 48px);
+  margin: -24px -24px 16px -24px;
+  height: 160px;
+  overflow: hidden;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.provider-service-card-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* =========================================================
+   DEDICATED ADMIN LOGIN & ADMIN PORTAL STYLES
+========================================================= */
+
+.button-admin-portal {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #f8fafc !important;
+  border: 1px solid #334155;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.55rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.button-admin-portal:hover {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  color: #ffffff !important;
+  border-color: #475569;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+}
+
+.button-admin-submit {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.button-admin-submit:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+
+.auth-admin-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.admin-portal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #1e293b;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.admin-portal-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.admin-login-footer-links {
+  margin-top: 1.25rem;
+  text-align: center;
+}
+
+.admin-back-standard-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.admin-back-standard-link:hover {
+  color: #2563eb;
+}
+
+/* =========================================================
+   PROVIDER APPLICATION STATUS VIEW (BECOME PROVIDER)
+========================================================= */
+
+.provider-status-view {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.provider-status-card {
+  padding: 2.5rem;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.provider-status-header-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem auto;
+}
+
+.provider-status-header-icon.pending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.provider-status-header-icon.verified {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.provider-status-card h1 {
+  font-size: 1.65rem;
+  font-weight: 700;
+  margin: 0.75rem 0;
+  color: #0f172a;
+}
+
+.provider-status-description {
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 1.75rem;
+  font-size: 0.95rem;
+}
+
+.provider-application-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.75rem;
+  text-align: left;
+}
+
+.provider-application-summary h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.85rem;
+}
+
+.provider-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.provider-summary-grid dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.03em;
+}
+
+.provider-summary-grid dd {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0.2rem 0 0 0;
+}
+
+/* =========================================================
+   ADMIN REVIEWS STYLES
+========================================================= */
+
+.admin-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.admin-review-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.admin-review-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.admin-review-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-review-stars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.star-filled {
+  color: #f59e0b;
+}
+
+.star-empty {
+  color: #cbd5e1;
+}
+
+.admin-review-score {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #0f172a;
+  margin-left: 5px;
+}
+
+.admin-review-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.775rem;
+  color: #64748b;
+}
+
+.admin-review-comment {
+  font-size: 0.9rem;
+  color: #334155;
+  line-height: 1.5;
+  font-style: italic;
+  flex-grow: 1;
+}
+
+.admin-review-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.775rem;
+  color: #64748b;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.6rem;
+}
+
+.admin-review-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

@@ -70,12 +70,14 @@ export default function Register() {
         },
       });
     } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ||
-          requestError.response?.data?.detail ||
-          "Unable to create your account.",
-      );
+      const detail = requestError.response?.data?.detail;
+      let msg = requestError.response?.data?.message;
+      if (typeof detail === "string") msg = detail;
+      else if (Array.isArray(detail)) msg = detail.map((d) => d.msg).join(". ");
+
+      setError(msg || "Unable to create your account.");
     } finally {
+
       setSubmitting(false);
     }
   };

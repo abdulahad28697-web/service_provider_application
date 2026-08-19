@@ -46,6 +46,11 @@ from app.models.service import Service
 from app.models.user import User
 from app.models.user_profile import FavoriteService, UserProfile
 
+# Admin account credentials.
+ADMIN_EMAIL = "admin@gmail.com"
+ADMIN_PASSWORD = "Admin123"
+HASHED_ADMIN_PASSWORD = hash_password(ADMIN_PASSWORD)
+
 # All test accounts share this password.
 SEED_PASSWORD = "Password123"
 HASHED_PASSWORD = hash_password(SEED_PASSWORD)
@@ -387,21 +392,28 @@ async def _get_or_create(session: AsyncSession, model, defaults=None, **filters)
     return instance, True
 
 
-async def seed() -> None:
-    """Populate the database with sample data."""
+import app.models  # noqa: F401
+
+
+async def seed(admin_only: bool = True) -> None:
+    """Populate the database with sample data or admin account only."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     async with async_session_factory() as session:
+
         # --- Admin -------------------------------------------------------------
         admin, _ = await _get_or_create(
             session,
             User,
             defaults={
                 "full_name": "Site Admin",
-                "hashed_password": HASHED_PASSWORD,
+                "hashed_password": HASHED_ADMIN_PASSWORD,
                 "role": UserRole.ADMIN,
                 "is_active": True,
                 "is_verified": True,
             },
-            email="admin@test.com",
+            email=ADMIN_EMAIL,
         )
 
         # --- Categories --------------------------------------------------------
@@ -419,6 +431,13 @@ async def seed() -> None:
                 slug=cat["slug"],
             )
             category_map[cat["slug"]] = obj
+
+        if admin_only:
+            await session.commit()
+            print("Database initialized with ONLY administrator account.")
+            print(f"Admin Email:    {ADMIN_EMAIL}")
+            print(f"Admin Password: {ADMIN_PASSWORD}")
+            return
 
         # --- Customers ----------------------------------------------------------
         customer_users = []
@@ -608,8 +627,9 @@ async def seed() -> None:
         await session.commit()
 
     print("Seed data created successfully.")
-    print("\n--- Login credentials (password for all: %s) ---" % SEED_PASSWORD)
-    print("Admin:    admin@test.com")
+    print("\n--- Login credentials ---")
+    print(f"Admin:    {ADMIN_EMAIL} (Password: {ADMIN_PASSWORD})")
+    print(f"Others:   Password for all test accounts is {SEED_PASSWORD}")
     for p in PROVIDERS:
         print(f"Provider: {p['email']}")
     for c in CUSTOMERS:
@@ -627,10 +647,11 @@ async def clear() -> None:
 async def main() -> None:
     import sys
 
-    if len(sys.argv) > 1 and sys.argv[1] == "--clear":
-        await clear()
-        print("Database cleared.")
-    await seed()
+    is_full_seed = len(sys.argv) > 1 and sys.argv[1] == "--full"
+
+    await clear()
+    print("Database cleared of test data.")
+    await seed(admin_only=not is_full_seed)
 
 
 if __name__ == "__main__":

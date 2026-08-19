@@ -4,12 +4,15 @@ import {
   Clock3,
   DollarSign,
   Edit3,
+  Image as ImageIcon,
   Plus,
   RefreshCw,
   Save,
   Trash2,
+  Upload,
   Wrench,
   X,
+  XCircle,
 } from "lucide-react";
 
 import api from "../../api/api";
@@ -22,6 +25,7 @@ const emptyForm = {
   price_unit: "per_hour",
   duration_minutes: "60",
   is_active: true,
+  images: [],
 };
 
 function getData(response) {
@@ -134,6 +138,50 @@ function ProviderServices() {
     setShowForm(true);
   };
 
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      setUploadingImage(true);
+      setError("");
+
+      const response = await api.post("/uploads/service-image", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const imageUrl = response.data?.data?.image_url;
+
+      if (imageUrl) {
+        setForm((current) => ({
+          ...current,
+          images: [...(current.images || []), imageUrl],
+        }));
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.response?.data?.detail ||
+          "Unable to upload service image.",
+      );
+    } finally {
+      setUploadingImage(false);
+      event.target.value = "";
+    }
+  };
+
+  const removeImage = (indexToRemove) => {
+    setForm((current) => ({
+      ...current,
+      images: (current.images || []).filter((_, index) => index !== indexToRemove),
+    }));
+  };
+
   const openEditForm = (service) => {
     setEditingId(service.id);
 
@@ -151,6 +199,7 @@ function ProviderServices() {
         service.duration_minutes || 60,
       ),
       is_active: Boolean(service.is_active),
+      images: Array.isArray(service.images) ? service.images : [],
     });
 
     setError("");
@@ -202,6 +251,7 @@ function ProviderServices() {
         form.duration_minutes,
       ),
       is_active: form.is_active,
+      images: form.images || [],
     };
 
     try {
@@ -514,6 +564,49 @@ function ProviderServices() {
                 </label>
               </div>
 
+              {/* SERVICE IMAGES GALLERY UPLOAD */}
+              <div className="form-field form-field-full service-gallery-uploader">
+                <span className="gallery-upload-title">
+                  <ImageIcon size={18} />
+                  Service Photos (Gallery Upload)
+                </span>
+                <p className="gallery-upload-hint">
+                  Upload high-quality images from your device gallery to show customers your work.
+                </p>
+
+                <div className="service-image-previews">
+                  {(form.images || []).map((imgUrl, index) => (
+                    <div key={index} className="service-image-thumb">
+                      <img src={imgUrl} alt={`Service preview ${index + 1}`} />
+                      <button
+                        type="button"
+                        className="remove-thumb-btn"
+                        onClick={() => removeImage(index)}
+                        title="Remove photo"
+                      >
+                        <XCircle size={16} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <label className="service-image-upload-btn">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      style={{ display: "none" }}
+                    />
+                    {uploadingImage ? (
+                      <RefreshCw size={22} className="spin" />
+                    ) : (
+                      <Upload size={22} />
+                    )}
+                    <span>{uploadingImage ? "Uploading..." : "Upload from Gallery"}</span>
+                  </label>
+                </div>
+              </div>
+
               {/* ACTIVE */}
 
               <label className="checkbox-field">
@@ -602,6 +695,12 @@ function ProviderServices() {
                 className="panel provider-service-card"
                 key={service.id}
               >
+                {Array.isArray(service.images) && service.images.length > 0 && (
+                  <div className="provider-service-card-banner">
+                    <img src={service.images[0]} alt={service.title} />
+                  </div>
+                )}
+
                 <div className="provider-service-card-header">
                   <span className="provider-service-icon">
                     <Wrench size={21} />

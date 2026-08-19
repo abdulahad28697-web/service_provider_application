@@ -11,9 +11,14 @@ from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
@@ -24,23 +29,45 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "ServiceHub AI"
     PROJECT_VERSION: str = "0.1.0"
     API_V1_PREFIX: str = "/api/v1"
-    DEBUG: bool = False
+    DEBUG: bool = True
 
     # --- Security -----------------------------------------------------------
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = "dev-secret-key-servicehub-local-dev-123"
+
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     # --- Database -----------------------------------------------------------
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@db:5432/servicehub"
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{BASE_DIR.as_posix()}/servicehub.db"
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        """Ensure relative SQLite paths resolve to backend BASE_DIR."""
+        if v.startswith("sqlite+aiosqlite:///./"):
+            db_filename = v.replace("sqlite+aiosqlite:///./", "")
+            target_path = BASE_DIR / db_filename
+            return f"sqlite+aiosqlite:///{target_path.as_posix()}"
+        return v
 
     # --- Redis / messaging --------------------------------------------------
     REDIS_URL: str = "redis://redis:6379/0"
-    ENABLE_REDIS: bool = True
+    ENABLE_REDIS: bool = False
+
     NOTIFICATION_CHANNEL: str = "servicehub:notifications"
 
     # --- CORS ---------------------------------------------------------------
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    # --- Email / SMTP -------------------------------------------------------
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_TLS: bool = True
+    EMAILS_FROM_EMAIL: str = "noreply@servicehub.ai"
+    EMAILS_FROM_NAME: str = "ServiceHub AI"
+    FRONTEND_URL: str = "http://localhost:5173"
 
     # --- Pagination defaults -----------------------------------------------
     DEFAULT_PAGE_SIZE: int = 20

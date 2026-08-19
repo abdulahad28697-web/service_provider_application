@@ -88,45 +88,26 @@ class PaymentService:
         )
 
         # -----------------------------------------------------
-        # CASH
+        # CASH ONLY
         # -----------------------------------------------------
 
-        if data.payment_method == PaymentMethod.CASH:
-            payment_status = PaymentStatus.PENDING
-
-            checkout_message = (
-                "Cash payment selected. "
-                "Payment will be collected when the service is completed."
+        if data.payment_method != PaymentMethod.CASH:
+            raise BadRequestError(
+                "Only Cash payment is accepted on ServiceHub."
             )
 
-        # -----------------------------------------------------
-        # JAZZCASH / EASYPAISA
-        # -----------------------------------------------------
-
-        else:
-            # For now we use a simulated digital checkout.
-            # Later this is where real JazzCash / Easypaisa
-            # gateway integration can be connected.
-
-            payment_status = PaymentStatus.PENDING
-
-            method_name = (
-                data.payment_method.value
-                .replace("_", " ")
-                .title()
-            )
-
-            checkout_message = (
-                f"{method_name} checkout created. "
-                "Complete the payment to continue."
-            )
+        payment_status = PaymentStatus.PENDING
+        checkout_message = (
+            "Cash payment selected. "
+            "Payment will be collected when the service is completed."
+        )
 
         payment = await self.payments.create(
             booking_id=booking.id,
             customer_id=customer.id,
             provider_id=booking.provider_id,
             amount=booking.total_price,
-            payment_method=data.payment_method,
+            payment_method=PaymentMethod.CASH,
             transaction_reference=transaction_reference,
             status=payment_status,
         )

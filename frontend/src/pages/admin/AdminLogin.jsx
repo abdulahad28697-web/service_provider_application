@@ -1,11 +1,15 @@
 import { useState } from "react";
 import {
   ArrowRight,
+  Eye,
+  EyeOff,
   LockKeyhole,
   Mail,
   ShieldCheck,
+  UserRound,
 } from "lucide-react";
 import {
+  Link,
   Navigate,
   useLocation,
   useNavigate,
@@ -29,6 +33,7 @@ export default function AdminLogin() {
     password: "",
   });
 
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -59,7 +64,7 @@ export default function AdminLogin() {
       if (currentUser?.role !== "admin") {
         logout();
         setError(
-          "Access denied. This account is not an administrator account.",
+          "Access denied. This account does not have administrator privileges.",
         );
         return;
       }
@@ -74,11 +79,12 @@ export default function AdminLogin() {
         { replace: true },
       );
     } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ||
-          requestError.response?.data?.detail ||
-          "Invalid administrator email or password.",
-      );
+      const detail = requestError.response?.data?.detail;
+      let msg = requestError.response?.data?.message;
+      if (typeof detail === "string") msg = detail;
+      else if (Array.isArray(detail)) msg = detail.map((d) => d.msg).join(". ");
+
+      setError(msg || "Invalid administrator email or password.");
     } finally {
       setSubmitting(false);
     }
@@ -88,18 +94,18 @@ export default function AdminLogin() {
     <main className="admin-login-page">
       <section className="admin-login-card">
         <div className="admin-login-icon">
-          <ShieldCheck size={32} />
+          <ShieldCheck size={36} />
         </div>
 
         <span className="eyebrow">
-          Restricted access
+          Secure portal
         </span>
 
-        <h1>Administrator sign in</h1>
+        <h1>Administrator Sign In</h1>
 
         <p className="admin-login-description">
-          Sign in to review provider applications and
-          manage the ServiceHub platform.
+          Sign in to review provider applications, verify businesses, and manage
+          platform operations.
         </p>
 
         {error && (
@@ -123,7 +129,7 @@ export default function AdminLogin() {
                 name="email"
                 value={form.email}
                 onChange={updateField}
-                placeholder="admin@example.com"
+                placeholder="admin@gmail.com"
                 autoComplete="email"
                 required
               />
@@ -133,39 +139,65 @@ export default function AdminLogin() {
           <label className="form-field">
             <span>Password</span>
 
-            <div className="input-with-icon">
+            <div className="input-with-icon password-input">
               <LockKeyhole size={18} />
 
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 name="password"
                 value={form.password}
                 onChange={updateField}
-                placeholder="Enter your password"
+                placeholder="Enter admin password"
                 autoComplete="current-password"
                 required
               />
+
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() =>
+                  setShowPassword((current) => !current)
+                }
+                aria-label={
+                  showPassword ? "Hide password" : "Show password"
+                }
+                title={
+                  showPassword ? "Hide password" : "Show password"
+                }
+              >
+                {showPassword ? (
+                  <EyeOff size={19} />
+                ) : (
+                  <Eye size={19} />
+                )}
+              </button>
             </div>
           </label>
 
           <button
             type="submit"
-            className="button button-full"
+            className="button button-full button-admin-submit"
             disabled={submitting}
           >
             {submitting
               ? "Checking access..."
-              : "Sign in as administrator"}
+              : "Sign in to Admin Dashboard"}
 
             {!submitting && <ArrowRight size={18} />}
           </button>
         </form>
 
+        <div className="admin-login-footer-links">
+          <Link to="/login" className="admin-back-standard-link">
+            <UserRound size={16} />
+            Customer or Provider Sign In
+          </Link>
+        </div>
+
         <p className="admin-security-note">
-          Provider passwords are never displayed or
-          available to administrators.
+          Protected administrative portal. All actions are logged in the audit trail.
         </p>
       </section>
     </main>
   );
-}
+}

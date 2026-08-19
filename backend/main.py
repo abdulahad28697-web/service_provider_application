@@ -3,15 +3,18 @@
 Run locally:  ``uvicorn main:app --reload``
 Run in Docker: ``docker compose up``
 """
+import os
 from contextlib import asynccontextmanager
 import time
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from app.uploads.utils import ensure_upload_directories
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from collections import defaultdict
+
 
 # Importing the models package registers every ORM model with Base.metadata so
 # that create_all (below) sees the full schema.
@@ -137,23 +140,42 @@ def create_app() -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
+
     # Mount the aggregated v1 API under the configured prefix.
     application.include_router(api_router, prefix=settings.API_V1_PREFIX)
-
-    @application.get("/", tags=["Health"])
-    async def root():
-        return {"service": settings.PROJECT_NAME, "status": "ok"}
 
     @application.get(f"{settings.API_V1_PREFIX}/health", tags=["Health"])
     async def health():
         return {"status": "healthy"}
 
+    # Mount frontend static build directory & SPA fallback for seamless routing on port 8000
+    frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+    if os.path.exists(frontend_dist):
+        assets_dir = os.path.join(frontend_dist, "assets")
+        if os.path.exists(assets_dir):
+            application.mount("/assets", StaticFiles(directory=assets_dir), name="static_assets")
+
+        @application.get("/{full_path:path}", include_in_schema=False)
+        async def serve_spa(full_path: str):
+            if full_path.startswith("api/") or full_path.startswith("media/"):
+                return JSONResponse(status_code=404, content={"detail": "Not Found"})
+            target_file = os.path.join(frontend_dist, full_path)
+            if full_path and os.path.exists(target_file) and os.path.isfile(target_file):
+                return FileResponse(target_file)
+            return FileResponse(os.path.join(frontend_dist, "index.html"))
+    else:
+        @application.get("/", tags=["Health"])
+        async def root():
+            return {"service": settings.PROJECT_NAME, "status": "ok"}
+
     return application
+
 
 
 app = create_app()

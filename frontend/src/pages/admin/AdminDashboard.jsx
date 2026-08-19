@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ArrowRight,
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
   // LOAD DASHBOARD
   // =========================================================
 
-  const loadDashboard = async (
+  const loadDashboard = useCallback(async (
     isRefresh = false,
   ) => {
     setError("");
@@ -83,12 +83,12 @@ export default function AdminDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [loadDashboard]);
 
 
   // =========================================================
@@ -155,13 +155,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     logout();
-
-    navigate(
-      "/admin/login",
-      {
-        replace: true,
-      },
-    );
+    navigate("/login", { replace: true });
   };
 
 
@@ -193,59 +187,7 @@ export default function AdminDashboard() {
 
   return (
     <main className="admin-page">
-
-      {/* =====================================================
-          ADMIN HEADER
-      ====================================================== */}
-
-      <header className="admin-header">
-        <div className="admin-header-content">
-
-          <Link
-            className="admin-brand"
-            to="/admin"
-          >
-            <span className="admin-brand-icon">
-              <ShieldCheck size={25} />
-            </span>
-
-            <span>
-              Service<span>Hub</span> Admin
-            </span>
-          </Link>
-
-
-          <div className="admin-header-actions">
-
-            <div className="admin-user">
-              <strong>
-                {user?.full_name ||
-                  "Administrator"}
-              </strong>
-
-              <span>
-                {user?.email}
-              </span>
-            </div>
-
-
-            <button
-              type="button"
-              className="button button-outline"
-              onClick={handleLogout}
-            >
-              <LogOut size={18} />
-              Logout
-            </button>
-
-          </div>
-
-        </div>
-      </header>
-
-
       <div className="admin-container">
-
         {/* ===================================================
             TITLE
         ==================================================== */}

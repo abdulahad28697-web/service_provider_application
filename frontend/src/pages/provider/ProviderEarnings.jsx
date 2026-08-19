@@ -415,19 +415,18 @@ export default function ProviderEarnings() {
 
 
           <article>
-            <span className="provider-earnings-stat-icon digital">
-              <CreditCard size={24} />
+            <span className="provider-earnings-stat-icon cash">
+              <Banknote size={24} />
             </span>
 
             <div>
               <span>
-                Digital earnings
+                Total collected
               </span>
 
               <strong>
                 {formatPrice(
-                  summary.jazzcash +
-                    summary.easypaisa,
+                  summary.paidAmount,
                 )}
               </strong>
             </div>
@@ -436,43 +435,41 @@ export default function ProviderEarnings() {
         </section>
 
 
-        {/* PAYMENT METHODS */}
+        {/* PAYMENT OVERVIEW */}
 
         <section className="provider-earnings-methods">
 
           <article>
             <span>
-              JazzCash
+              Cash on Service
             </span>
 
             <strong>
               {formatPrice(
-                summary.jazzcash,
+                summary.cash || summary.paidAmount,
               )}
             </strong>
           </article>
 
           <article>
             <span>
-              Easypaisa
+              Pending Collection
             </span>
 
             <strong>
               {formatPrice(
-                summary.easypaisa,
+                summary.pendingAmount,
               )}
             </strong>
           </article>
 
           <article>
             <span>
-              Refunded
+              Completed Bookings
             </span>
 
             <strong>
-              {formatPrice(
-                summary.refundedAmount,
-              )}
+              {summary.paidTransactions}
             </strong>
           </article>
 

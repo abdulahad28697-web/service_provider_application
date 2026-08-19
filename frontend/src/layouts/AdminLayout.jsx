@@ -1,13 +1,9 @@
-<Route element={<AdminRoute />}>
-  <Route element={<AdminLayout />}>
-    <Route path="/admin" element={<AdminDashboard />} />
-    <Route
-      path="/admin/providers"
-      element={<ProviderApplications />}
-    />
-    <Route
-      path="/admin/providers/:providerId"
-      element={<ProviderDetails />}
-    />
-  </Route>
-</Route>
+import { Outlet } from "react-router-dom";
+
+export default function AdminLayout() {
+  return (
+    <div className="admin-layout">
+      <Outlet />
+    </div>
+  );
+}

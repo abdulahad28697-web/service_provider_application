@@ -24,6 +24,7 @@ from app.schemas.auth import (
     ResetPasswordRequest,
     UserRegister,
 )
+from app.services.email_service import EmailService
 
 
 class AuthService:
@@ -35,6 +36,7 @@ class AuthService:
     ) -> None:
         self.db = db
         self.users = UserRepository(db)
+        self.email_service = EmailService()
 
     async def register(
         self,
@@ -127,15 +129,23 @@ class AuthService:
         self,
         email: str,
     ) -> Optional[str]:
-        """Generate a reset token without exposing unknown accounts."""
+        """Generate a reset token and dispatch verification email to the user."""
         user = await self.users.get_by_email(email)
 
         if user is None or not user.is_active:
             return None
 
-        return create_password_reset_token(
+        token = create_password_reset_token(
             subject=str(user.id)
         )
+
+        self.email_service.send_password_reset_email(
+            to_email=user.email,
+            full_name=user.full_name,
+            reset_token=token,
+        )
+
+        return token
 
     async def reset_password(
         self,

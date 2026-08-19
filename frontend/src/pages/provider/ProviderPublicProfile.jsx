@@ -106,7 +106,7 @@ function ProviderPublicProfile() {
       );
 
       setIsFavorite(providerIsFavorite);
-    } catch (requestError) {
+    } catch {
       /*
        * Do not block the provider page if favorites
        * cannot be loaded. The user can still browse.

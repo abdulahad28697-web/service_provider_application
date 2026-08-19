@@ -11,18 +11,46 @@ import api from "../api/api";
 
 const AuthContext = createContext(null);
 
+export function normalizeUser(rawUser) {
+  if (!rawUser || typeof rawUser !== "object") {
+    return null;
+  }
+
+  const idVal = rawUser.id ?? rawUser.user_id ?? null;
+  const roleVal =
+    typeof rawUser.role === "string"
+      ? rawUser.role.toLowerCase()
+      : rawUser.role?.value
+        ? String(rawUser.role.value).toLowerCase()
+        : String(rawUser.role || "customer").toLowerCase();
+
+  return {
+    ...rawUser,
+    id: idVal,
+    user_id: rawUser.user_id ?? idVal,
+    role: roleVal,
+  };
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem("current_user");
+    const token = localStorage.getItem("access_token");
+    if (!token) return null;
 
+    const storedUser = localStorage.getItem("current_user");
     try {
-      return storedUser ? JSON.parse(storedUser) : null;
+      return storedUser ? normalizeUser(JSON.parse(storedUser)) : null;
     } catch {
       return null;
     }
   });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    const token = localStorage.getItem("access_token");
+    const storedUser = localStorage.getItem("current_user");
+    // If we already have token and stored user, we don't block initial render
+    return Boolean(token && !storedUser);
+  });
 
   const fetchCurrentUser = useCallback(async () => {
     const token = localStorage.getItem("access_token");
@@ -35,7 +63,7 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await api.get("/users/me");
-      const currentUser = response.data.data;
+      const currentUser = normalizeUser(response.data.data);
 
       setUser(currentUser);
       localStorage.setItem(
@@ -44,10 +72,27 @@ export function AuthProvider({ children }) {
       );
 
       return currentUser;
-    } catch {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("current_user");
-      setUser(null);
+    } catch (error) {
+      // Only wipe session if server explicitly returns 401 Unauthorized
+      if (error.response?.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("current_user");
+        setUser(null);
+        return null;
+      }
+
+      // If it's a network glitch or server reload, retain cached user if present
+      const stored = localStorage.getItem("current_user");
+      if (stored) {
+        try {
+          const cached = normalizeUser(JSON.parse(stored));
+          setUser(cached);
+          return cached;
+        } catch {
+          // ignore JSON parse error
+        }
+      }
+
       return null;
     } finally {
       setLoading(false);
@@ -56,6 +101,16 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     fetchCurrentUser();
+
+    const handleFocus = () => {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        fetchCurrentUser();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [fetchCurrentUser]);
 
   const login = useCallback(
@@ -127,6 +182,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
 

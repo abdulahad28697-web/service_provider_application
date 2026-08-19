@@ -1,22 +1,29 @@
 import { useState } from "react";
 import {
   ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   LockKeyhole,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import api from "../../api/api";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tokenFromUrl = searchParams.get("token") || "";
 
   const [form, setForm] = useState({
-    resetToken: "",
+    resetToken: tokenFromUrl,
     newPassword: "",
     confirmPassword: "",
   });
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,8 +40,25 @@ export default function ResetPassword() {
     event.preventDefault();
     setError("");
 
+    if (!form.resetToken.trim()) {
+      setError("Please provide a valid password reset token.");
+      return;
+    }
+
     if (form.newPassword !== form.confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+
+    if (
+      !/[a-z]/.test(form.newPassword) ||
+      !/[A-Z]/.test(form.newPassword) ||
+      !/[0-9]/.test(form.newPassword) ||
+      form.newPassword.length < 8
+    ) {
+      setError(
+        "Password must contain at least 8 characters, including uppercase, lowercase letters and a number.",
+      );
       return;
     }
 
@@ -46,11 +70,16 @@ export default function ResetPassword() {
         new_password: form.newPassword,
       });
 
-      navigate("/login");
+      navigate("/login", {
+        state: {
+          message: "Password reset successful! You can now log in with your new password.",
+        },
+      });
     } catch (requestError) {
       setError(
         requestError.response?.data?.message ||
-          "The reset token is invalid or expired.",
+          requestError.response?.data?.detail ||
+          "The reset link or token is invalid or has expired.",
       );
     } finally {
       setSubmitting(false);
@@ -61,24 +90,18 @@ export default function ResetPassword() {
     <section className="auth-page">
       <div className="auth-card">
         <div className="auth-heading">
-          <span className="eyebrow">Secure account</span>
-          <h1>Create a new password</h1>
+          <span className="eyebrow">Secure Account</span>
+          <h1>Set New Password</h1>
           <p>
-            Enter your reset token and choose a strong new
-            password.
+            Create and confirm your new password to approve account recovery.
           </p>
         </div>
 
-        {error && (
-          <div className="alert alert-error">{error}</div>
-        )}
+        {error && <div className="alert alert-error">{error}</div>}
 
-        <form
-          className="auth-form"
-          onSubmit={handleSubmit}
-        >
+        <form className="auth-form" onSubmit={handleSubmit}>
           <label className="form-field">
-            <span>Reset token</span>
+            <span>Verification Token</span>
             <div className="input-with-icon">
               <KeyRound size={18} />
               <input
@@ -86,7 +109,7 @@ export default function ResetPassword() {
                 name="resetToken"
                 value={form.resetToken}
                 onChange={updateField}
-                placeholder="Paste your reset token"
+                placeholder="Paste reset token from email"
                 required
               />
             </div>
@@ -94,31 +117,49 @@ export default function ResetPassword() {
 
           <label className="form-field">
             <span>New password</span>
-            <div className="input-with-icon">
+            <div className="input-with-icon password-input">
               <LockKeyhole size={18} />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 name="newPassword"
                 value={form.newPassword}
                 onChange={updateField}
-                placeholder="Minimum 8 characters"
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
                 required
               />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((curr) => !curr)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </label>
 
           <label className="form-field">
-            <span>Confirm password</span>
-            <div className="input-with-icon">
+            <span>Confirm new password</span>
+            <div className="input-with-icon password-input">
               <LockKeyhole size={18} />
               <input
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 name="confirmPassword"
                 value={form.confirmPassword}
                 onChange={updateField}
-                placeholder="Repeat your password"
+                placeholder="Re-enter your new password"
+                autoComplete="new-password"
                 required
               />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowConfirmPassword((curr) => !curr)}
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </label>
 
@@ -127,9 +168,7 @@ export default function ResetPassword() {
             className="button button-full"
             disabled={submitting}
           >
-            {submitting
-              ? "Updating..."
-              : "Reset password"}
+            {submitting ? "Updating password..." : "Confirm & Reset Password"}
             {!submitting && <ArrowRight size={18} />}
           </button>
         </form>

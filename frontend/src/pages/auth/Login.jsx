@@ -5,6 +5,7 @@ import {
   EyeOff,
   LockKeyhole,
   Mail,
+  ShieldCheck,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -49,11 +50,12 @@ export default function Login() {
         navigate("/");
       }
     } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ||
-          requestError.response?.data?.detail ||
-          "Invalid email or password.",
-      );
+      const detail = requestError.response?.data?.detail;
+      let msg = requestError.response?.data?.message;
+      if (typeof detail === "string") msg = detail;
+      else if (Array.isArray(detail)) msg = detail.map((d) => d.msg).join(". ");
+
+      setError(msg || "Invalid email or password.");
     } finally {
       setSubmitting(false);
     }
@@ -153,6 +155,14 @@ export default function Login() {
           </button>
         </form>
 
+        <div className="auth-admin-switch">
+          <span>Platform Administrator?</span>
+          <Link to="/admin/login" className="admin-portal-link">
+            <ShieldCheck size={16} />
+            Sign in to Admin Portal
+          </Link>
+        </div>
+
         <p className="auth-switch">
           New to ServiceHub?{" "}
           <Link to="/register">Create an account</Link>
@@ -160,4 +170,4 @@ export default function Login() {
       </div>
     </section>
   );
-}
+}

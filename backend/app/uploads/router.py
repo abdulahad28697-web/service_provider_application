@@ -56,3 +56,24 @@ async def upload_provider_portfolio_image(
         data={"image_url": image_url},
         message="Portfolio image uploaded.",
     )
+
+
+@router.post(
+    "/service-image",
+    response_model=StandardResponse,
+    summary="Upload a service image photo",
+)
+async def upload_service_image(
+    file: UploadFile = File(...),
+    service: UploadService = Depends(_service),
+    _user: User = Depends(get_current_user),
+):
+    image_url = await service.save_image(
+        file,
+        category="services",
+    )
+
+    return success_response(
+        data={"image_url": image_url},
+        message="Service image uploaded.",
+    )

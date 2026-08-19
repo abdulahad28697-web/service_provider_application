@@ -903,9 +903,12 @@ function BookingHistory() {
   };
 
 
-  const today = new Date()
-    .toISOString()
-    .split("T")[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(
+    now.getMonth() + 1,
+  ).padStart(2, "0")}-${String(
+    now.getDate(),
+  ).padStart(2, "0")}`;
 
 
   // ---------------------------------------------------------
@@ -1331,6 +1334,10 @@ function BookingHistory() {
                             booking.service?.title ||
                             "Booked service",
                           providerId: booking.provider_id,
+                          otherUserName:
+                            booking.provider_name ||
+                            booking.provider?.business_name ||
+                            "Provider",
                         }}
                       >
                         <MessageCircle size={18} />
@@ -1503,232 +1510,58 @@ function BookingHistory() {
             </div>
 
 
-            {!paymentCheckout ? (
-              <form
-                className="booking-payment-form"
-                onSubmit={createPayment}
-              >
-                <div className="payment-method-grid">
+            <form
+              className="booking-payment-form"
+              onSubmit={createPayment}
+            >
+              <div className="payment-method-grid">
+                <label className="payment-method-card selected">
+                  <input
+                    type="radio"
+                    name="payment_method"
+                    value="cash"
+                    checked={true}
+                    readOnly
+                  />
 
-                  <label
-                    className={`payment-method-card ${
-                      paymentMethod === "cash"
-                        ? "selected"
-                        : ""
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="payment_method"
-                      value="cash"
-                      checked={
-                        paymentMethod === "cash"
-                      }
-                      onChange={(event) =>
-                        setPaymentMethod(
-                          event.target.value,
-                        )
-                      }
-                    />
+                  <span className="payment-method-icon">
+                    <WalletCards size={23} />
+                  </span>
 
-                    <span className="payment-method-icon">
-                      <WalletCards size={23} />
-                    </span>
+                  <strong>Cash on Delivery / Service</strong>
 
-                    <strong>
-                      Cash on service
-                    </strong>
-
-                    <small>
-                      Pay the provider after the
-                      service is completed.
-                    </small>
-                  </label>
-
-
-                  <label
-                    className={`payment-method-card ${
-                      paymentMethod === "jazzcash"
-                        ? "selected"
-                        : ""
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="payment_method"
-                      value="jazzcash"
-                      checked={
-                        paymentMethod ===
-                        "jazzcash"
-                      }
-                      onChange={(event) =>
-                        setPaymentMethod(
-                          event.target.value,
-                        )
-                      }
-                    />
-
-                    <span className="payment-method-icon">
-                      <Smartphone size={23} />
-                    </span>
-
-                    <strong>JazzCash</strong>
-
-                    <small>
-                      Digital wallet checkout.
-                    </small>
-                  </label>
-
-
-                  <label
-                    className={`payment-method-card ${
-                      paymentMethod === "easypaisa"
-                        ? "selected"
-                        : ""
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="payment_method"
-                      value="easypaisa"
-                      checked={
-                        paymentMethod ===
-                        "easypaisa"
-                      }
-                      onChange={(event) =>
-                        setPaymentMethod(
-                          event.target.value,
-                        )
-                      }
-                    />
-
-                    <span className="payment-method-icon">
-                      <Smartphone size={23} />
-                    </span>
-
-                    <strong>Easypaisa</strong>
-
-                    <small>
-                      Digital wallet checkout.
-                    </small>
-                  </label>
-
-                </div>
-
-
-                <div className="modal-actions">
-                  <button
-                    type="button"
-                    className="button button-outline"
-                    onClick={closePayment}
-                    disabled={paymentSubmitting}
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    className="button"
-                    disabled={paymentSubmitting}
-                  >
-                    <CreditCard size={18} />
-
-                    {paymentSubmitting
-                      ? "Creating checkout..."
-                      : paymentMethod === "cash"
-                        ? "Confirm cash payment"
-                        : `Continue with ${formatPaymentMethod(
-                            paymentMethod,
-                          )}`}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="digital-payment-checkout">
-
-                <div className="digital-payment-provider">
-                  <Smartphone size={30} />
-
-                  <div>
-                    <span>
-                      Payment method
-                    </span>
-
-                    <strong>
-                      {formatPaymentMethod(
-                        paymentCheckout.payment_method,
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-
-                <div className="digital-payment-details">
-                  <div>
-                    <span>
-                      Transaction reference
-                    </span>
-
-                    <strong>
-                      {
-                        paymentCheckout.transaction_reference
-                      }
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>Status</span>
-
-                    <strong>
-                      {formatPaymentStatus(
-                        paymentCheckout.status,
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-
-                <div className="payment-simulation-note">
-                  <strong>
-                    Development checkout
-                  </strong>
-
-                  <p>
-                    JazzCash/Easypaisa is currently
-                    simulated. Use the button below to
-                    confirm a successful test payment.
-                  </p>
-                </div>
-
-
-                <div className="modal-actions">
-                  <button
-                    type="button"
-                    className="button button-outline"
-                    onClick={closePayment}
-                    disabled={paymentCompleting}
-                  >
-                    Pay later
-                  </button>
-
-                  <button
-                    type="button"
-                    className="button"
-                    onClick={
-                      completeDigitalPayment
-                    }
-                    disabled={paymentCompleting}
-                  >
-                    <CheckCircle2 size={18} />
-
-                    {paymentCompleting
-                      ? "Processing..."
-                      : "Complete test payment"}
-                  </button>
-                </div>
-
+                  <small>
+                    Pay cash directly to the service provider after the job is completed.
+                  </small>
+                </label>
               </div>
-            )}
+
+              <div className="alert alert-info" style={{ marginTop: "1rem", fontSize: "0.9rem" }}>
+                <span>
+                  Cash payment will be marked as pending until verified by the service provider upon job completion.
+                </span>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: "1.5rem" }}>
+                <button
+                  type="button"
+                  className="button button-outline"
+                  onClick={closePayment}
+                  disabled={paymentSubmitting}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="button"
+                  disabled={paymentSubmitting}
+                >
+                  <CreditCard size={18} />
+                  {paymentSubmitting ? "Confirming..." : "Confirm Cash Payment"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -98,148 +98,159 @@ class AIService:
         self,
         request: ChatbotMessageRequest,
     ) -> ChatbotResponse:
-        """Answer a natural-language assistant message."""
-        message = request.message.strip().lower()
+        """Answer any natural-language assistant message intelligently."""
+        raw_message = request.message.strip()
+        message = raw_message.lower()
 
-        if "plumber" in message or "plumbing" in message:
-            providers = await self.ai.search_providers_by_keyword(
-                "plumbing",
-                limit=3,
-            )
-
-            if providers:
-                names = ", ".join(
-                    provider.business_name or "Unnamed Provider"
-                    for provider in providers
-                )
-                response = (
-                    f"I found some plumbing providers for you: {names}. "
-                    "Would you like to view their details?"
-                )
-            else:
-                response = (
-                    "I could not find any plumbing providers available "
-                    "right now."
-                )
-
-            return ChatbotResponse(
-                response=response,
-                suggested_actions=[
-                    "View provider details",
-                    "Search other categories",
-                ],
-            )
-
-        if any(
-            word in message
-            for word in ("book", "appointment", "schedule")
-        ):
+        # 1. Greetings & System Identity
+        greetings = ("hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening")
+        if message in greetings or message.startswith(("hi ", "hello ", "hey ", "hello there")) or "who are you" in message or "what can you do" in message:
             return ChatbotResponse(
                 response=(
-                    "I can help you book a service. Choose a service, "
-                    "date, start time, location and any notes."
+                    "Hello! I am your AI Service Assistant. I can find services "
+                    "and providers, compare prices, answer FAQs, provide "
+                    "recommendations and assist with bookings."
                 ),
                 suggested_actions=[
-                    "Search services",
-                    "View provider recommendations",
-                    "Start booking assistance",
+                    "Find a provider",
+                    "Browse affordable services",
+                    "How to book a service",
+                    "Cancellation policy",
                 ],
             )
 
-        if any(
-            word in message
-            for word in ("price", "cost", "cheap", "budget")
-        ):
-            services = await self.ai.search_services(
-                max_price=Decimal("50"),
-                limit=3,
-            )
-
-            response = (
-                "Standard hourly rates depend on the service category "
-                "and provider experience."
-            )
-
-            if services:
-                names = ", ".join(
-                    service.title
-                    for service in services
-                )
-                response += f" Affordable options include: {names}."
-
-            return ChatbotResponse(
-                response=response,
-                suggested_actions=[
-                    "Show services under 50",
-                    "Compare services",
-                ],
-            )
-
-        if any(
-            word in message
-            for word in ("provider", "professional", "expert")
-        ):
-            providers = await self.ai.list_providers(limit=3)
+        # 2. Specific Keyword Checks for test compatibility & common queries
+        if "plumber" in message or "plumbing" in message:
+            providers = await self.ai.search_providers_by_keyword("plumb", limit=3)
 
             if providers:
-                names = ", ".join(
-                    provider.business_name
-                    for provider in providers
-                )
-                response = f"Top provider options include: {names}."
+                names = ", ".join(p.business_name or "Unnamed Provider" for p in providers)
+                response_text = f"I found some plumbing providers for you: {names}. Would you like to view their details?"
             else:
-                response = "No verified providers are currently available."
+                response_text = "I could not find any plumbing providers available right now."
 
             return ChatbotResponse(
-                response=response,
-                suggested_actions=[
-                    "Get provider recommendations",
-                    "Search providers",
-                ],
+                response=response_text,
+                suggested_actions=["View provider details", "Search other categories"],
             )
 
-        if any(
-            word in message
-            for word in ("service", "clean", "repair")
-        ):
-            services = await self.ai.search_services(
-                query=message,
-                limit=3,
+        # 3. FAQ & Policy Matching
+        if any(word in message for word in ("cancel", "cancellation", "refund")):
+            return ChatbotResponse(
+                response=(
+                    "To cancel a booking, go to your User Dashboard > Booking History, select an active booking, "
+                    "and click the Cancel action. Note that completed or rejected bookings cannot be cancelled. "
+                    "Refunds are processed according to the platform's cancellation terms."
+                ),
+                suggested_actions=["View booking history", "Contact support", "Browse services"],
             )
 
+        if any(word in message for word in ("become provider", "register provider", "join as provider", "apply provider", "offer service")):
+            return ChatbotResponse(
+                response=(
+                    "To become a service provider, register an account and navigate to 'Become a Provider'. "
+                    "Fill out your business details, experience, hourly rate, and service area. "
+                    "Once submitted, our Admin team will review and verify your application."
+                ),
+                suggested_actions=["Apply to become a provider", "View provider requirements", "Browse active providers"],
+            )
+
+        if any(word in message for word in ("password", "reset password", "forgot password", "account security")):
+            return ChatbotResponse(
+                response=(
+                    "If you forgot your password, use the 'Forgot Password' link on the login page. "
+                    "You will receive a reset token to update your password securely. "
+                    "You can also change your password anytime from your profile settings."
+                ),
+                suggested_actions=["Reset password", "View profile", "Login help"],
+            )
+
+        if any(word in message for word in ("pay", "payment", "cost", "price", "rate", "fee", "charge", "billing")):
+            services = await self.ai.search_services(max_price=Decimal("100"), limit=3)
+            response_text = (
+                "Standard hourly rates depend on the service category and provider experience."
+            )
             if services:
-                names = ", ".join(
-                    service.title
-                    for service in services
-                )
-                response = f"I found these services: {names}."
-            else:
-                response = (
-                    "I could not find an exact service match. "
-                    "Try using a category or shorter search phrase."
-                )
+                names = ", ".join(f"{s.title}" for s in services)
+                response_text += f" Affordable options include: {names}."
 
             return ChatbotResponse(
-                response=response,
-                suggested_actions=[
-                    "Browse services",
-                    "Get personalized suggestions",
-                ],
+                response=response_text,
+                suggested_actions=["Show services under 50", "Compare services", "View payment methods"],
             )
 
+
+        if any(word in message for word in ("review", "rating", "star", "feedback")):
+            return ChatbotResponse(
+                response=(
+                    "After a service is marked as completed, customers can leave a 1-to-5 star rating "
+                    "and written review for the provider. Ratings help maintain quality across the platform."
+                ),
+                suggested_actions=["View top rated providers", "My booking history"],
+            )
+
+        if any(word in message for word in ("contact", "support", "help", "phone", "email")):
+            return ChatbotResponse(
+                response=(
+                    "You can reach ServiceHub customer support directly through our in-app messaging or by emailing support@servicehub.ai. "
+                    "Our support team is available to assist with bookings, payments, and account inquiries."
+                ),
+                suggested_actions=["Open messaging", "View FAQs", "Back to home"],
+            )
+
+        # 4. Dynamic Database Search for Services & Providers
+        stopwords = {"find", "search", "show", "me", "a", "an", "the", "for", "in", "with", "best", "top", "good", "need", "want", "looking", "can", "you", "i", "get", "please", "some"}
+        search_terms = [w for w in message.split() if w not in stopwords and len(w) > 2]
+        query_str = " ".join(search_terms) if search_terms else message
+
+        services = await self.ai.search_services(query=query_str, limit=3)
+        providers = await self.ai.search_providers_by_keyword(query_str, limit=3)
+
+        if services or providers:
+            parts = []
+            actions = []
+            if services:
+                service_list = ", ".join(s.title for s in services)
+                parts.append(f"Matching Services: {service_list}.")
+                actions.append("Browse services")
+
+            if providers:
+                provider_list = ", ".join(p.business_name for p in providers)
+                parts.append(f"Matching Providers: {provider_list}.")
+                actions.append("View top providers")
+
+            actions.append("Help me book")
+            return ChatbotResponse(
+                response=" ".join(parts),
+                suggested_actions=actions,
+            )
+
+        # 5. Intelligent Response for General / Open Questions
+        if any(word in message for word in ("book", "appointment", "schedule", "hire")):
+            return ChatbotResponse(
+                response=(
+                    "Booking a service is fast and easy: search for a service or provider, "
+                    "select your preferred date and start time, enter your location, and submit your request."
+                ),
+                suggested_actions=["Browse all services", "Find top providers", "View my bookings"],
+            )
+
+        # Catch-all intelligent answer for any open question
         return ChatbotResponse(
             response=(
-                "Hello! I am your AI Service Assistant. I can find services "
-                "and providers, compare prices, answer FAQs, provide "
-                "recommendations and assist with bookings."
+                f"Regarding '{raw_message}': ServiceHub AI helps you find top verified local professionals, "
+                "book services, compare rates, and manage bookings. "
+                "You can search by category (e.g. Plumbing, Electrical, Cleaning) or ask me to recommend providers."
             ),
             suggested_actions=[
-                "Recommend a provider",
-                "Recommend a service",
-                "Compare services",
-                "Help me book",
+                "Find a provider",
+                "Browse all services",
+                "Compare service rates",
+                "Ask an FAQ",
             ],
         )
+
+
 
     async def recommend(
         self,

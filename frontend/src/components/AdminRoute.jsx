@@ -17,7 +17,7 @@ export default function AdminRoute({ children }) {
   if (!isAuthenticated) {
     return (
       <Navigate
-        to="/admin/login"
+        to="/login"
         state={{ from: location }}
         replace
       />

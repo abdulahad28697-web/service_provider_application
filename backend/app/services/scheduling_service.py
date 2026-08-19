@@ -40,12 +40,12 @@ class SchedulingService:
         return base.time()
 
     @staticmethod
-    def _time_in_range(t: time, start: time, end: time) -> bool:
-        """True if ``t`` is within [start, end). Handles overnight slots."""
+    def _time_in_range(t: time, start: time, end: time, inclusive_end: bool = False) -> bool:
+        """True if ``t`` is within [start, end] (or [start, end) if not inclusive). Handles overnight slots."""
         if start <= end:  # same-day window
-            return start <= t < end
+            return start <= t <= end if inclusive_end else start <= t < end
         # overnight window (e.g. 22:00 -> 02:00)
-        return t >= start or t < end
+        return t >= start or (t <= end if inclusive_end else t < end)
 
     async def provider_available(
         self,
@@ -71,15 +71,32 @@ class SchedulingService:
         schedule = await self.schedules.get_for_day(provider_id, weekday)
 
         if schedule is None:
-            return not strict
+            if strict:
+                return False
+            # Lenient default operational window: 08:00 to 20:00
+            default_start = time(8, 0)
+            default_end = time(20, 0)
+            return (
+                default_start <= scheduled_start
+                and scheduled_end <= default_end
+            )
+
         if not schedule.is_available:
             return False
 
+        if schedule.start_time <= schedule.end_time:
+            # Same-day window: slot must be contained within [start_time, end_time]
+            return (
+                schedule.start_time <= scheduled_start
+                and scheduled_end <= schedule.end_time
+            )
+
+        # Overnight window (e.g. 22:00 -> 02:00)
         covers_start = self._time_in_range(
-            scheduled_start, schedule.start_time, schedule.end_time
+            scheduled_start, schedule.start_time, schedule.end_time, inclusive_end=False
         )
         covers_end = self._time_in_range(
-            scheduled_end, schedule.start_time, schedule.end_time
+            scheduled_end, schedule.start_time, schedule.end_time, inclusive_end=True
         )
         return covers_start and covers_end
 

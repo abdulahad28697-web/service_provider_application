@@ -95,7 +95,7 @@ async def become_provider(
 )
 async def get_my_provider_profile(
     service: ProviderService = Depends(_service),
-    user: User = Depends(require_provider),
+    user: User = Depends(get_current_user),
 ):
     provider = await service.get_my_profile(
         user

@@ -25,9 +25,12 @@ import {
   MapPin,
   Menu,
   MessageCircle,
+  MessageSquareText,
   Search,
+  ShieldCheck,
   User,
   UserPlus,
+  Users,
   WalletCards,
   X,
 } from "lucide-react";
@@ -123,6 +126,9 @@ function AppLayout() {
   const isCustomer =
     userRole === "customer";
 
+  const isAdmin =
+    userRole === "admin";
+
 
   // =========================================================
   // NAVIGATION
@@ -186,28 +192,14 @@ function AppLayout() {
       }
     }, [user]);
 
-
   useEffect(() => {
+
     if (!user) {
-      return undefined;
+      setNotifications([]);
+      return;
     }
-
     loadNotifications();
-
-    /*
-     * Refresh occasionally so new booking updates
-     * appear without requiring a full page refresh.
-     */
-    const intervalId = window.setInterval(
-      loadNotifications,
-      30000,
-    );
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
   }, [user, loadNotifications]);
-
 
   const unreadCount = useMemo(
     () =>
@@ -217,7 +209,6 @@ function AppLayout() {
       ).length,
     [notifications],
   );
-
 
   const markNotificationRead =
     async (notification) => {
@@ -247,10 +238,6 @@ function AppLayout() {
         setNotificationOpen(false);
         closeMenu();
 
-        /*
-         * All notifications currently created by the
-         * booking system point to a booking.
-         */
         if (
           String(
             notification.notification_type ||
@@ -264,7 +251,6 @@ function AppLayout() {
           } else {
             navigate("/bookings");
           }
-
           return;
         }
       } catch (requestError) {
@@ -275,7 +261,6 @@ function AppLayout() {
         );
       }
     };
-
 
   const markAllRead = async () => {
     if (unreadCount === 0) {
@@ -304,18 +289,14 @@ function AppLayout() {
     }
   };
 
-
   const toggleNotifications = async () => {
-    const willOpen =
-      !notificationOpen;
-
+    const willOpen = !notificationOpen;
     setNotificationOpen(willOpen);
 
     if (willOpen) {
       await loadNotifications();
     }
   };
-
 
   // =========================================================
   // MESSAGE UNREAD COUNT
@@ -346,23 +327,13 @@ function AppLayout() {
       }
     }, [user]);
 
-
   useEffect(() => {
     if (!user) {
       setUnreadMessages(0);
-      return undefined;
+      return;
     }
 
     loadUnreadMessages();
-
-    const intervalId = window.setInterval(
-      loadUnreadMessages,
-      15000,
-    );
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
   }, [user, loadUnreadMessages]);
 
 
@@ -388,7 +359,6 @@ function AppLayout() {
         <div className="container header-container">
 
           {/* BRAND */}
-
           <Link
             to="/"
             className="brand"
@@ -396,18 +366,16 @@ function AppLayout() {
           >
             <span className="brand-icon">
               <BriefcaseBusiness
-                size={23}
+                size={22}
               />
             </span>
 
-            <span>
+            <span className="brand-title">
               Service<span>Hub</span>
             </span>
           </Link>
 
-
-          {/* MOBILE MENU */}
-
+          {/* MOBILE MENU BUTTON */}
           <button
             type="button"
             className="mobile-menu-button"
@@ -416,7 +384,7 @@ function AppLayout() {
                 (current) => !current,
               )
             }
-            aria-label="Open navigation menu"
+            aria-label="Toggle navigation menu"
             aria-expanded={menuOpen}
           >
             {menuOpen ? (
@@ -426,11 +394,7 @@ function AppLayout() {
             )}
           </button>
 
-
-          {/* =================================================
-              NAVIGATION
-          ================================================== */}
-
+          {/* NAVIGATION */}
           <nav
             className={`main-nav ${
               menuOpen
@@ -438,82 +402,155 @@ function AppLayout() {
                 : ""
             }`}
           >
-            <NavLink
-              to="/"
-              end
-              className={getNavClass}
-              onClick={closeMenu}
-            >
-              <Home size={17} />
-              Home
-            </NavLink>
+            <div className="nav-links-group">
+              <NavLink
+                to="/"
+                end
+                className={getNavClass}
+                onClick={closeMenu}
+              >
+                <Home size={16} />
+                Home
+              </NavLink>
 
-
-            <NavLink
-              to="/services"
-              className={getNavClass}
-              onClick={closeMenu}
-            >
-              <Search size={17} />
-              Services
-            </NavLink>
+              <NavLink
+                to="/services"
+                className={getNavClass}
+                onClick={closeMenu}
+              >
+                <Search size={16} />
+                Services
+              </NavLink>
 
 
             {user && (
               <>
-                {/* CUSTOMER BOOKING HISTORY */}
-
-                {!isProvider && (
-                  <NavLink
-                    to="/bookings"
-                    className={
-                      getNavClass
-                    }
-                    onClick={closeMenu}
-                  >
-                    <CalendarDays
-                      size={17}
-                    />
-                    Bookings
-                  </NavLink>
-                )}
-
-
-                {/* PROVIDER BOOKINGS */}
-
-                {isProvider && (
+                {/* ADMIN NAVIGATION */}
+                {isAdmin && (
                   <>
                     <NavLink
-                      to="/provider/bookings"
-                      className={
-                        getNavClass
-                      }
+                      to="/admin"
+                      end
+                      className={getNavClass}
                       onClick={closeMenu}
                     >
-                      <CalendarDays
-                        size={17}
-                      />
+                      <ShieldCheck size={17} />
+                      Dashboard
+                    </NavLink>
+
+                    <NavLink
+                      to="/admin/providers"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <Users size={17} />
+                      Applications
+                    </NavLink>
+
+                    <NavLink
+                      to="/admin/bookings"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <CalendarDays size={17} />
                       Bookings
                     </NavLink>
 
                     <NavLink
-                      to="/provider/earnings"
-                      className={
-                        getNavClass
-                      }
+                      to="/admin/payments"
+                      className={getNavClass}
                       onClick={closeMenu}
                     >
-                      <WalletCards
-                        size={17}
-                      />
-                      Earnings
+                      <WalletCards size={17} />
+                      Payments
+                    </NavLink>
+
+                    <NavLink
+                      to="/admin/reviews"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <MessageSquareText size={17} />
+                      Reviews
                     </NavLink>
                   </>
                 )}
 
 
-                {/* MESSAGES */}
+                {/* CUSTOMER NAVIGATION */}
+                {isCustomer && (
+                  <>
+                    <NavLink
+                      to="/bookings"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <CalendarDays size={17} />
+                      Bookings
+                    </NavLink>
 
+                    <NavLink
+                      to="/favorites"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <Heart size={17} />
+                      Favorites
+                    </NavLink>
+
+                    <NavLink
+                      to="/addresses"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <MapPin size={17} />
+                      Addresses
+                    </NavLink>
+
+                    <NavLink
+                      to="/become-provider"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <BriefcaseBusiness size={17} />
+                      Become Provider
+                    </NavLink>
+                  </>
+                )}
+
+                {/* PROVIDER NAVIGATION */}
+                {isProvider && (
+                  <>
+                    <NavLink
+                      to="/provider/bookings"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <CalendarDays size={17} />
+                      Bookings
+                    </NavLink>
+
+                    <NavLink
+                      to="/provider/earnings"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <WalletCards size={17} />
+                      Earnings
+                    </NavLink>
+
+                    <NavLink
+                      to="/provider"
+                      className={getNavClass}
+                      onClick={closeMenu}
+                    >
+                      <BriefcaseBusiness size={17} />
+                      Provider Portal
+                    </NavLink>
+                  </>
+                )}
+
+                {/* MESSAGES */}
                 <button
                   type="button"
                   className="nav-link nav-messages-link"
@@ -531,7 +568,7 @@ function AppLayout() {
                   )}
                 </button>
 
-
+                {/* AI ASSISTANT */}
                 <NavLink
                   to="/ai-assistant"
                   className={getNavClass}
@@ -541,7 +578,7 @@ function AppLayout() {
                   AI Assistant
                 </NavLink>
 
-
+                {/* PROFILE */}
                 <NavLink
                   to="/profile"
                   className={getNavClass}
@@ -550,59 +587,15 @@ function AppLayout() {
                   <User size={17} />
                   Profile
                 </NavLink>
+              </>
+            )}
+          </div>
 
-
-                {/* CUSTOMER-ONLY ITEMS */}
-
-                {isCustomer && (
-                  <>
-                    <NavLink
-                      to="/favorites"
-                      className={
-                        getNavClass
-                      }
-                      onClick={closeMenu}
-                    >
-                      <Heart size={18} />
-                      Favorites
-                    </NavLink>
-
-                    <NavLink
-                      to="/addresses"
-                      className={
-                        getNavClass
-                      }
-                      onClick={closeMenu}
-                    >
-                      <MapPin size={18} />
-                      Addresses
-                    </NavLink>
-                  </>
-                )}
-
-
-                {/* PROVIDER DASHBOARD */}
-
-                {isProvider && (
-                  <NavLink
-                    to="/provider"
-                    className={
-                      getNavClass
-                    }
-                    onClick={closeMenu}
-                  >
-                    <BriefcaseBusiness
-                      size={17}
-                    />
-                    Provider
-                  </NavLink>
-                )}
-
-
-                {/* =============================================
-                    NOTIFICATION BELL
-                ============================================== */}
-
+            {/* =================================================
+                ACTIONS GROUP (Notifications + Auth / Logout)
+            ================================================== */}
+            <div className="nav-actions-group">
+              {user && (
                 <div className="notification-menu">
                   <button
                     type="button"
@@ -619,7 +612,7 @@ function AppLayout() {
                       notificationOpen
                     }
                   >
-                    <Bell size={20} />
+                    <Bell size={19} />
 
                     {unreadCount > 0 && (
                       <span className="notification-count">
@@ -630,12 +623,9 @@ function AppLayout() {
                     )}
                   </button>
 
-
                   {/* NOTIFICATION DROPDOWN */}
-
                   {notificationOpen && (
                     <div className="notification-dropdown">
-
                       <div className="notification-dropdown-header">
                         <div>
                           <strong>
@@ -664,7 +654,6 @@ function AppLayout() {
                         )}
                       </div>
 
-
                       {notificationError && (
                         <div className="notification-error">
                           {
@@ -673,9 +662,7 @@ function AppLayout() {
                         </div>
                       )}
 
-
                       <div className="notification-list">
-
                         {notificationsLoading &&
                         notifications.length ===
                           0 ? (
@@ -757,53 +744,57 @@ function AppLayout() {
                               ),
                             )
                         )}
-
                       </div>
                     </div>
                   )}
                 </div>
-
-              </>
-            )}
-
-
-            {/* =================================================
-                AUTH ACTIONS
-            ================================================== */}
-
-            <div className="nav-auth-actions">
-              {user ? (
-                <button
-                  type="button"
-                  className="button button-secondary nav-logout-button"
-                  onClick={handleLogout}
-                >
-                  <LogOut size={17} />
-                  Logout
-                </button>
-              ) : (
-                <>
-                  <Link
-                    to="/login"
-                    className="button button-secondary"
-                    onClick={closeMenu}
-                  >
-                    <LogIn size={17} />
-                    Sign in
-                  </Link>
-
-                  <Link
-                    to="/register"
-                    className="button button-primary"
-                    onClick={closeMenu}
-                  >
-                    <UserPlus
-                      size={17}
-                    />
-                    Register
-                  </Link>
-                </>
               )}
+
+              {/* AUTH ACTIONS */}
+              <div className="nav-auth-actions">
+                {user ? (
+                  <button
+                    type="button"
+                    className="button button-danger-outline nav-logout-button"
+                    onClick={handleLogout}
+                  >
+                    <LogOut size={16} />
+                    <span>Logout</span>
+                  </button>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="button button-secondary"
+                      onClick={closeMenu}
+                    >
+                      <LogIn size={16} />
+                      <span>Sign in</span>
+                    </Link>
+
+                    <Link
+                      to="/register"
+                      className="button button-primary"
+                      onClick={closeMenu}
+                    >
+                      <UserPlus
+                        size={16}
+                      />
+                      <span>Register</span>
+                    </Link>
+
+                    <Link
+                      to="/admin/login"
+                      className="button button-admin-portal"
+                      onClick={closeMenu}
+                      title="Sign in as platform administrator"
+                    >
+                      <ShieldCheck size={15} />
+                      <span>Admin</span>
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </nav>
         </div>
@@ -966,10 +957,12 @@ function AppLayout() {
           </p>
 
           <p>
-            Service provider and booking
-            platform
+            <Link to="/admin/login" style={{ textDecoration: 'underline' }}>
+              Admin Portal
+            </Link>
           </p>
         </div>
+
       </footer>
     </div>
   );

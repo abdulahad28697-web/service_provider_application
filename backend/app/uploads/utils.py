@@ -10,6 +10,7 @@ from app.core.exceptions import BadRequestError
 MEDIA_ROOT = Path("media")
 PROFILE_PICTURES_DIR = MEDIA_ROOT / "profile_pictures"
 PROVIDER_PORTFOLIOS_DIR = MEDIA_ROOT / "provider_portfolios"
+SERVICES_DIR = MEDIA_ROOT / "services"
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
@@ -24,6 +25,7 @@ def ensure_upload_directories() -> None:
     """Create upload directories if they do not exist."""
     PROFILE_PICTURES_DIR.mkdir(parents=True, exist_ok=True)
     PROVIDER_PORTFOLIOS_DIR.mkdir(parents=True, exist_ok=True)
+    SERVICES_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def validate_image_type(file: UploadFile) -> str:

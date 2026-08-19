@@ -7,18 +7,22 @@ import {
   Building2,
   CheckCircle2,
   CircleDollarSign,
+  Clock3,
   Mail,
   MapPin,
+  RefreshCw,
   ShieldCheck,
   Star,
   User,
+  Wrench,
 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import api from "../../api/api";
 
 export default function ProviderDetails() {
   const { providerId } = useParams();
+  const navigate = useNavigate();
 
   const [provider, setProvider] = useState(null);
   const [owner, setOwner] = useState(null);
@@ -32,6 +36,25 @@ export default function ProviderDetails() {
     setError("");
 
     try {
+      // First try dedicated admin provider details endpoint
+      try {
+        const directResponse = await api.get(`/admin/providers/${providerId}`);
+        const data = directResponse.data?.data;
+        if (data) {
+          setProvider(data);
+          setOwner(data.owner || null);
+          return;
+        }
+      } catch (directError) {
+        if (directError.response?.status === 404) {
+          setError("Provider application not found or has been removed.");
+          setProvider(null);
+          setOwner(null);
+          return;
+        }
+      }
+
+      // Fallback lookup
       const [providersResponse, usersResponse] = await Promise.all([
         api.get("/admin/providers"),
         api.get("/admin/users"),
@@ -71,12 +94,15 @@ export default function ProviderDetails() {
 
   useEffect(() => {
     loadProvider();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerId]);
 
   const updateVerification = async (isVerified) => {
     setSubmitting(true);
     setError("");
     setMessage("");
+
+    const businessName = provider?.business_name || "Provider";
 
     try {
       const response = await api.put(
@@ -88,16 +114,26 @@ export default function ProviderDetails() {
 
       const updatedProvider = response.data?.data;
 
+      if (!isVerified && !updatedProvider) {
+        navigate("/admin/providers", {
+          replace: true,
+          state: {
+            message: `Provider application for "${businessName}" was rejected and removed.`,
+          },
+        });
+        return;
+      }
+
       setProvider((current) => ({
         ...current,
-        ...updatedProvider,
+        ...(updatedProvider || {}),
         is_verified: isVerified,
       }));
 
       setMessage(
         isVerified
-          ? "Provider approved successfully."
-          : "Provider application rejected.",
+          ? `Provider "${businessName}" approved successfully! The provider is now verified and active.`
+          : `Provider application for "${businessName}" rejected.`,
       );
     } catch (requestError) {
       setError(
@@ -113,8 +149,9 @@ export default function ProviderDetails() {
   if (loading) {
     return (
       <main className="admin-page">
-        <div className="admin-container">
-          <p>Loading provider application...</p>
+        <div className="admin-container" style={{ textAlign: "center", padding: "4rem 0" }}>
+          <RefreshCw size={28} className="spin" style={{ margin: "0 auto 1rem auto", color: "var(--primary)" }} />
+          <p>Loading provider application details...</p>
         </div>
       </main>
     );
@@ -129,10 +166,10 @@ export default function ProviderDetails() {
             className="admin-back-link"
           >
             <ArrowLeft size={18} />
-            Provider applications
+            Back to provider applications
           </Link>
 
-          <div className="alert alert-error">
+          <div className="alert alert-error" style={{ marginTop: "1rem" }}>
             {error || "Provider application not found."}
           </div>
         </div>
@@ -154,14 +191,14 @@ export default function ProviderDetails() {
         <header className="admin-page-header provider-review-header">
           <div>
             <span className="eyebrow">
-              Provider application
+              Provider application review
             </span>
 
             <h1>{provider.business_name}</h1>
 
             <p>
-              Review the account and business information before
-              approving this provider.
+              Review the account credentials and business information before
+              confirming verification.
             </p>
           </div>
 
@@ -175,12 +212,12 @@ export default function ProviderDetails() {
             {provider.is_verified ? (
               <BadgeCheck size={18} />
             ) : (
-              <ShieldCheck size={18} />
+              <Clock3 size={18} />
             )}
 
             {provider.is_verified
-              ? "Verified"
-              : "Verification pending"}
+              ? "Verified Provider"
+              : "Verification Pending"}
           </span>
         </header>
 
@@ -195,13 +232,14 @@ export default function ProviderDetails() {
         )}
 
         <section className="provider-review-grid">
+          {/* ACCOUNT OWNER */}
           <article className="admin-panel provider-detail-card">
             <div className="admin-panel-heading">
               <User size={22} />
 
               <div>
                 <h2>Account owner</h2>
-                <p>Registered user information</p>
+                <p>Registered user details</p>
               </div>
             </div>
 
@@ -227,7 +265,7 @@ export default function ProviderDetails() {
                   <ShieldCheck size={17} />
                   Account role
                 </dt>
-                <dd>{owner?.role || "provider"}</dd>
+                <dd style={{ textTransform: "capitalize" }}>{owner?.role || "Customer"}</dd>
               </div>
 
               <div>
@@ -244,13 +282,14 @@ export default function ProviderDetails() {
             </dl>
           </article>
 
+          {/* BUSINESS INFO */}
           <article className="admin-panel provider-detail-card">
             <div className="admin-panel-heading">
               <BriefcaseBusiness size={22} />
 
               <div>
                 <h2>Business information</h2>
-                <p>Provider’s public business details</p>
+                <p>Provider public business profile</p>
               </div>
             </div>
 
@@ -277,7 +316,7 @@ export default function ProviderDetails() {
                   Hourly rate
                 </dt>
                 <dd>
-                  PKR {Number(provider.hourly_rate || 0).toLocaleString()}
+                  PKR {Number(provider.hourly_rate || 0).toLocaleString()}/hr
                 </dd>
               </div>
 
@@ -286,7 +325,7 @@ export default function ProviderDetails() {
                   <Star size={17} />
                   Rating
                 </dt>
-                <dd>{provider.rating || "0.0"}</dd>
+                <dd>{Number(provider.rating || 0).toFixed(1)} / 5.0</dd>
               </div>
 
               <div>
@@ -308,30 +347,29 @@ export default function ProviderDetails() {
           </article>
         </section>
 
+        {/* DESCRIPTION */}
         <section className="admin-panel provider-description-panel">
           <h2>Business description</h2>
-
           <p>
             {provider.description ||
               "The provider has not added a business description."}
           </p>
         </section>
 
+        {/* DECISION PANEL */}
         <section className="admin-panel admin-action-panel">
           <div>
             <h2>Verification decision</h2>
 
             <p>
-              Approving allows this provider to use verified
-              provider features. Rejecting removes verification.
+              Approving grants this provider verified badge status, elevates their
+              role, and sends an approval notification. Rejecting revokes verification.
             </p>
 
             <div className="admin-security-note">
               <ShieldCheck size={19} />
-
               <span>
-                Passwords must never be displayed to administrators.
-                They remain securely hashed.
+                Passwords and sensitive credentials are secure and never exposed.
               </span>
             </div>
           </div>
@@ -344,17 +382,17 @@ export default function ProviderDetails() {
               disabled={submitting}
             >
               <Ban size={18} />
-              {submitting ? "Updating..." : "Reject"}
+              {submitting ? "Processing..." : "Reject application"}
             </button>
 
             <button
               type="button"
-              className="button"
+              className="button button-primary"
               onClick={() => updateVerification(true)}
               disabled={submitting}
             >
               <BadgeCheck size={18} />
-              {submitting ? "Updating..." : "Approve provider"}
+              {submitting ? "Processing..." : "Approve provider"}
             </button>
           </div>
         </section>

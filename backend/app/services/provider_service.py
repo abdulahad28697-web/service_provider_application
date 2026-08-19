@@ -1,11 +1,15 @@
 """Business logic for provider profiles, availability and portfolios."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.constants import DAY_OF_WEEK_FROM_ISO, UserRole
+from app.common.constants import (
+    DAY_OF_WEEK_FROM_ISO,
+    DayOfWeek,
+    UserRole,
+)
 from app.core.exceptions import (
     BadRequestError,
     ConflictError,
@@ -287,6 +291,28 @@ class ProviderService:
             provider.id
         )
 
+        if not rows:
+            # If provider hasn't set custom schedule, default to standard available hours (Mon-Sun 08:00-20:00)
+            return [
+                ScheduleSlotRead(
+                    id=0,
+                    provider_id=provider.id,
+                    day_of_week=day,
+                    start_time=time(8, 0),
+                    end_time=time(20, 0),
+                    is_available=True,
+                )
+                for day in [
+                    DayOfWeek.MONDAY,
+                    DayOfWeek.TUESDAY,
+                    DayOfWeek.WEDNESDAY,
+                    DayOfWeek.THURSDAY,
+                    DayOfWeek.FRIDAY,
+                    DayOfWeek.SATURDAY,
+                    DayOfWeek.SUNDAY,
+                ]
+            ]
+
         return [
             ScheduleSlotRead.model_validate(row)
             for row in rows
@@ -343,11 +369,15 @@ class ProviderService:
             weekday,
         )
 
-        if (
-            schedule is None
-            or not schedule.is_available
-        ):
-            return []
+        if schedule is not None:
+            if not schedule.is_available:
+                return []
+            start_t = schedule.start_time
+            end_t = schedule.end_time
+        else:
+            # Lenient default operational window if schedule not explicitly configured
+            start_t = time(8, 0)
+            end_t = time(20, 0)
 
         duration_minutes = max(
             int(service.duration_minutes or 60),
@@ -356,12 +386,12 @@ class ProviderService:
 
         availability_start = datetime.combine(
             selected_date,
-            schedule.start_time,
+            start_t,
         )
 
         availability_end = datetime.combine(
             selected_date,
-            schedule.end_time,
+            end_t,
         )
 
         slots: list[str] = []

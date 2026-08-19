@@ -39,14 +39,24 @@ class ProviderRead(BaseModel):
 
     id: int
     user_id: int
-    business_name: str
-    description: str
-    category: str
-    hourly_rate: Decimal
-    rating: Decimal
-    is_verified: bool
-    city: str
-    address: str
+    business_name: str = ""
+    description: Optional[str] = ""
+    category: Optional[str] = ""
+    hourly_rate: Decimal = Decimal("0.00")
+    rating: Decimal = Decimal("0.00")
+    is_verified: bool = False
+    city: Optional[str] = ""
+    address: Optional[str] = ""
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ProviderDetailRead(ProviderRead):
+    """Detailed provider application info with owner user and service statistics for admins."""
+
+    owner: Optional[UserRead] = None
+    service_count: int = 0
+    booking_count: int = 0
 
 
 class ProviderVerifyRequest(BaseModel):
@@ -65,3 +75,4 @@ class AdminLogRead(BaseModel):
     performed_by: Optional[int] = None
     details: str
     created_at: datetime
+

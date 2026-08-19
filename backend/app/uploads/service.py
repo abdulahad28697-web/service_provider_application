@@ -10,13 +10,14 @@ from app.uploads.utils import (
     MAX_FILE_SIZE,
     PROFILE_PICTURES_DIR,
     PROVIDER_PORTFOLIOS_DIR,
+    SERVICES_DIR,
     ensure_upload_directories,
     generate_unique_filename,
     media_url,
     validate_image_type,
 )
 
-UploadCategory = Literal["profile_pictures", "provider_portfolios"]
+UploadCategory = Literal["profile_pictures", "provider_portfolios", "services"]
 
 
 class UploadService:
@@ -32,6 +33,9 @@ class UploadService:
 
         if category == "provider_portfolios":
             return PROVIDER_PORTFOLIOS_DIR
+
+        if category == "services":
+            return SERVICES_DIR
 
         raise BadRequestError("Invalid upload category.")
 
