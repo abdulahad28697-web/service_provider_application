@@ -872,7 +872,7 @@ export default function Services() {
                       src={
                         service.images[0].startsWith("http")
                           ? service.images[0]
-                          : `http://localhost:8000${service.images[0]}`
+                          : `https://service-provider-backend-yea9.onrender.com${service.images[0]}`
                       }
                       alt={service.title}
                       loading="lazy"

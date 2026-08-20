@@ -279,7 +279,7 @@ export default function Profile() {
           "http",
         )
         ? profile.profile_picture_url
-        : `http://localhost:8000${profile.profile_picture_url}`
+        : `https://service-provider-backend-yea9.onrender.com${profile.profile_picture_url}`
       : null;
 
   return (

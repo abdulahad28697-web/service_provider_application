@@ -168,7 +168,7 @@ export default function FavoriteProviders() {
                   <div className="favorite-card-top" style={{ height: "140px", overflow: "hidden", position: "relative" }}>
                     {image ? (
                       <img
-                        src={image.startsWith("http") ? image : `http://localhost:8000${image}`}
+                        src={image.startsWith("http") ? image : `https://service-provider-backend-yea9.onrender.com${image}`}
                         alt={title}
                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
                       />
