@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     NOTIFICATION_CHANNEL: str = "servicehub:notifications"
 
     # --- CORS ---------------------------------------------------------------
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "https://service-provider-application-m8937xiks-ahad5.vercel.app"]
 
     # --- Email / SMTP -------------------------------------------------------
     SMTP_HOST: str = ""
